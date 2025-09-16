@@ -20,6 +20,7 @@ const HELIUS_ENHANCED_API_URL = `https://api.helius.xyz/v0`;
 
 /**
  * Centralized function for making JSON-RPC requests (POST) to Helius.
+ * Note: This helper is for RPC methods that accept an array of parameters.
  * @param method The JSON-RPC method to call.
  * @param params The parameters for the method.
  */
@@ -58,20 +59,36 @@ async function heliusRpcRequest<T>(method: string, params: any[]): Promise<T> {
  * @returns An array of assets, including their metadata, balance, and price information.
  */
 async function getAssetsByOwner(ownerAddress: string): Promise<any[]> {
-    const params = {
-        ownerAddress: ownerAddress,
-        displayOptions: {
-            showFungible: true,
-            showUnwrapped: true,
-            showInscription: true,
+    const body = {
+        jsonrpc: "2.0",
+        id: "1",
+        method: "getAssetsByOwner",
+        params: {
+            ownerAddress,
+            displayOptions: {
+                showFungible: true,
+                showNativeBalance: true,
+                showInscription: true,
+            },
+            page: 1, 
+            limit: 1000,
         },
-        // Helius limits results to 1000 per page. For large wallets, you would
-        // need to implement pagination with `page` and `sortBy` parameters.
-        page: 1, 
-        limit: 1000,
     };
-    const result = await heliusRpcRequest<any>("getAssetsByOwner", [params]);
-    return result?.items || [];
+
+    try {
+        const { data }: AxiosResponse<any> = await axios.post(HELIUS_RPC_URL, body, {
+            timeout: 20_000,
+            headers: { "Content-Type": "application/json" },
+        });
+
+        if (data.error) {
+            throw new Error(`Helius RPC Error: ${data.error.message}`);
+        }
+        return data.result?.items || [];
+    } catch (error) {
+        console.error(`RPC call to getAssetsByOwner failed:`, error);
+        throw error;
+    }
 }
 
 /**
