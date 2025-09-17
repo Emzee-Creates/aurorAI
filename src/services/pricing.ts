@@ -125,11 +125,12 @@ export async function getMarinadeApy() {
         const response = await axios.get("https://api.marinade.finance/msol/apy/30d");
         
         // --- Add a check to ensure the response is valid and has the 'apy' field ---
+        const apy = response.data?.apy || response.data?.value || response.data?.apy_5_epochs;
         if (response.status === 200 && response.data?.value) {
             // Ensure the value is a number
-            const apy = response.data.apy;
-            if (typeof apy === 'number' && !isNaN(apy)) {
-                return apy;
+            const parsedApy = parseFloat(apy);
+            if (!isNaN(parsedApy)) {
+                return parsedApy;
             }
         }
 
