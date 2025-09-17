@@ -10,12 +10,12 @@ Description: This endpoint fetches a comprehensive snapshot of a Solana wallet, 
 
 URL Parameter:
 
-:walletAddress (required): The public key of the Solana wallet to analyze. use FGi6gUdHhecqNgnU5u3hDAcXTWgs6eRoJMiJqPZXuq6f just for testing
+:walletAddress (required): The public key of the Solana wallet to analyze. use 9dFBCrJfjPVJUFwR4peJpKyNSAB4F2Di2HGa9JG6m3in just for testing
 
 Example Request
 You can test this route by making a GET request using a tool like Postman, or by simply pasting the URL into your browser:
 
-http://localhost:5000/analytics/FGi6gUdHhecqNgnU5u3hDAcXTWgs6eRoJMiJqPZXuq6f
+http://localhost:5000/analytics/9dFBCrJfjPVJUFwR4peJpKyNSAB4F2Di2HGa9JG6m3in
 JSON Response Structure
 A successful request will return a JSON object with the following structure. This is the data your frontend should expect and be built to display.
 
