@@ -4,18 +4,19 @@ import { Connection, PublicKey } from "@solana/web3.js";
 const { getAssetsByOwner, getClassifiedTransactions, getHeliusRpcUrl } = require("./helius");
 import { analyzeConcentrationRisk } from "./risk";
 const { getTokenInfo } = require("./pricing");
+// Import the new staking analysis function
+import { analyzeSolStaking } from "./staking";
+import { classifyUserBehavior } from "./behavior";
 
 const connection = new Connection(getHeliusRpcUrl());
 const LAMPORTS_PER_SOL = 1_000_000_000;
 const toSol = (lamports: number) => lamports / LAMPORTS_PER_SOL;
 
-
-async function getWalletAnalytics(
-    walletAddress: string,
-    daysCandlestick: number = 7
+export async function getWalletAnalytics(
+    walletAddress: string
 ) {
     try {
-        // Step 1: Fetch assets and SOL balance in parallel for robustness
+        // Step 1: Fetch assets and SOL balance in parallel
         const [assets, solBalanceLamports, transactions] = await Promise.all([
             getAssetsByOwner(walletAddress),
             connection.getBalance(new PublicKey(walletAddress)),
@@ -32,13 +33,12 @@ async function getWalletAnalytics(
             const symbol = asset.content?.metadata?.symbol || null;
             const name = asset.content?.metadata?.name || null;
             
-            // Fetch price data only if we have a symbol and a non-zero amount
             let price = null;
-            let candlesticks = [];
+            // Fetch price data only if we have a symbol and a non-zero amount
             if (symbol && amount > 0) {
+                // We no longer need to check for 'candlesticks' here as getTokenInfo no longer returns it for all tokens
                 const tokenPricing = await getTokenInfo(asset.id, symbol);
                 price = tokenPricing.price;
-                candlesticks = tokenPricing.candlesticks;
             }
 
             const valueUSD = price !== null ? amount * price : null;
@@ -50,7 +50,6 @@ async function getWalletAnalytics(
                 amount,
                 price,
                 valueUSD,
-                candlesticks,
             };
         }));
         
@@ -66,7 +65,6 @@ async function getWalletAnalytics(
             amount: solAmount,
             price: solPriceInfo.price,
             valueUSD: solValueUSD,
-            candlesticks: solPriceInfo.candlesticks
         };
         
         // Step 3: Combine all assets, including SOL, and filter out zero balances
@@ -77,15 +75,21 @@ async function getWalletAnalytics(
             return sum + (asset.valueUSD || 0);
         }, 0);
         
+        // Step 4: Run the analysis functions
         const concentrationRisk = analyzeConcentrationRisk(cleanAssets, totalPortfolioValueUSD);
-
+        const solStakingAnalysis = await analyzeSolStaking(solAmount); // Analyze staking based on the SOL amount
+        const userBehavior = classifyUserBehavior(transactions);
+        // Step 5: Return the combined data
         return {
             wallet: walletAddress,
             balances: cleanAssets,
             transactions,
             totalPortfolioValueUSD,
             concentrationRisk,
+            solStakingAnalysis, 
+            userBehavior,
         };
+
     } catch (err) {
         console.error("Error in getWalletAnalytics:", err);
         throw err;

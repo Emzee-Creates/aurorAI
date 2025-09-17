@@ -18,39 +18,23 @@ const SOLANA_MINT_ADDRESS = "So11111111111111111111111111111111111111112";
 const priceCache = new Map();
 const CACHE_LIFETIME = 60 * 1000; // 60 seconds
 
-// Function to get SOL price specifically from Birdeye
-async function getBirdeyePrice(tokenAddress: string) {
+/**
+ * Fetches historical price data and candlesticks for a specific CoinGecko coin ID.
+ * @param {string} coinId The CoinGecko coin ID (e.g., "solana").
+ * @param {number} daysCandlestick The number of days of historical data to fetch.
+ * @returns {Promise<object>} An object with the current price and historical candlesticks.
+ */
+export async function getCoinGeckoInfo(coinId: string, daysCandlestick: number = 7) {
     try {
-        const url = `${BIRDEYE_API_URL}?address=${tokenAddress}`;
-        const response = await axios.get(url, {
-            headers: {
-                'accept': 'application/json',
-                'X-API-KEY': BIRDEYE_API_KEY
-            }
-        });
+        const ohlcResponse = await axios.get(
+            `${COINGECKO_API_URL}/coins/${coinId}/ohlc?vs_currency=usd&days=${daysCandlestick}`
+        );
+        const candlesticks = ohlcResponse.data || [];
 
-        if (response.data && response.data.data && response.data.data.value) {
-            return {
-                price: response.data.data.value,
-                candlesticks: [] // Birdeye has separate historical data endpoints, not included in this simple price call
-            };
-        }
-    } catch (err) {
-        console.error(`Error fetching from Birdeye for ${tokenAddress}:`, err);
-    }
-    return { price: null, candlesticks: [] };
-}
-
-// Existing CoinGecko function (remains the same)
-async function getCoinGeckoInfo(coinId: string, daysCandlestick: number = 7) {
-    try {
-        const [priceResponse, candlestickResponse] = await Promise.all([
-            axios.get(`${COINGECKO_API_URL}/simple/price?ids=${coinId}&vs_currencies=usd`),
-            axios.get(`${COINGECKO_API_URL}/coins/${coinId}/ohlc?vs_currency=usd&days=${daysCandlestick}`)
-        ]);
-
+        const priceResponse = await axios.get(
+            `${COINGECKO_API_URL}/simple/price?ids=${coinId}&vs_currencies=usd`
+        );
         const price = priceResponse.data[coinId]?.usd || null;
-        const candlesticks = candlestickResponse.data || [];
 
         const formattedCandlesticks = candlesticks.map((candle: any[]) => ({
             timestamp: candle[0],
@@ -67,25 +51,13 @@ async function getCoinGeckoInfo(coinId: string, daysCandlestick: number = 7) {
     }
 }
 
-// Existing Dexscreener function (remains the same)
-async function getDexscreenerPrice(mintAddress: string) {
-    try {
-        const { data } = await axios.get(`${DEXSCREENER_API_URL}/${mintAddress}`);
-
-        if (data?.pairs && data.pairs.length > 0) {
-            const pair = data.pairs[0];
-            return {
-                price: parseFloat(pair.priceUsd),
-                candlesticks: [],
-            };
-        }
-    } catch (err) {
-        console.error(`Error fetching from Dexscreener for ${mintAddress}:`, err);
-    }
-    return { price: null, candlesticks: [] };
-}
-
-async function getTokenInfo(mintAddress: string, symbol: string) {
+/**
+ * The main function to get a token's real-time price.
+ * @param {string} mintAddress The token's Solana mint address.
+ * @param {string} symbol The token symbol.
+ * @returns {Promise<object>} Token info with price.
+ */
+export async function getTokenInfo(mintAddress: string, symbol: string) {
     const cacheKey = mintAddress;
     const cachedData = priceCache.get(cacheKey);
 
@@ -94,30 +66,78 @@ async function getTokenInfo(mintAddress: string, symbol: string) {
     }
     
     let price = null;
-    let candlesticks = [];
 
-    // Use Birdeye strictly for Solana price
     if (mintAddress === SOLANA_MINT_ADDRESS || symbol.toUpperCase() === "SOL") {
-        const birdeyeData = await getBirdeyePrice(SOLANA_MINT_ADDRESS);
-        price = birdeyeData.price;
-        candlesticks = birdeyeData.candlesticks;
+        try {
+            const response = await axios.get(`${COINGECKO_API_URL}/simple/price?ids=solana&vs_currencies=usd`);
+            price = response.data.solana?.usd || null;
+        } catch (err) {
+            console.error("Error fetching SOL price from CoinGecko:", err);
+        }
     } 
-    // For all other tokens, fall back to CoinGecko and Dexscreener
     else {
-        const cgData = await getCoinGeckoInfo(mintAddress);
-        price = cgData.price;
-        candlesticks = cgData.candlesticks;
+        let fallback = false;
+        try {
+            const url = `${BIRDEYE_API_URL}?address=${mintAddress}`;
+            const response = await axios.get(url, {
+                headers: {
+                    'accept': 'application/json',
+                    'X-API-KEY': BIRDEYE_API_KEY
+                }
+            });
+            if (response.data?.data?.value) {
+                price = response.data.data.value;
+            } else {
+                fallback = true;
+            }
+        } catch (err) {
+            console.warn(`Birdeye failed for ${mintAddress}. Falling back to Dexscreener.`);
+            fallback = true;
+        }
 
-        if (price === null) {
-            const dsData = await getDexscreenerPrice(mintAddress);
-            price = dsData.price;
+        if (price === null || fallback) {
+            try {
+                const { data } = await axios.get(`${DEXSCREENER_API_URL}/${mintAddress}`);
+                if (data?.pairs && data.pairs.length > 0) {
+                    price = parseFloat(data.pairs[0].priceUsd);
+                }
+            } catch (err) {
+                console.error(`Dexscreener also failed for ${mintAddress}.`, err);
+            }
         }
     }
 
-    const result = { price, candlesticks };
+    const result = { price };
     priceCache.set(cacheKey, { timestamp: Date.now(), data: result });
     
     return result;
 }
 
-module.exports = { getTokenInfo };
+/**
+ * Fetches the current mSOL staking APY from the Marinade Finance API.
+ * This is a good proxy for the general SOL staking APY.
+ * @returns {Promise<number>} The current APY as a decimal (e.g., 0.075 for 7.5%).
+ */
+export async function getMarinadeApy() {
+    // A reliable default APY in case the API call fails
+    const DEFAULT_APY = 0.075; 
+    try {
+        const response = await axios.get("https://api.marinade.finance/msol/apy/30d");
+        
+        // --- Add a check to ensure the response is valid and has the 'apy' field ---
+        if (response.status === 200 && response.data?.value) {
+            // Ensure the value is a number
+            const apy = response.data.apy;
+            if (typeof apy === 'number' && !isNaN(apy)) {
+                return apy;
+            }
+        }
+
+        // Fallback to the default APY if the response is not as expected
+        console.warn("Marinade APY API returned an unexpected response. Using default APY.");
+        return DEFAULT_APY;
+    } catch (error) {
+        console.error("Error fetching Marinade APY:", error);
+        return DEFAULT_APY; // Return a default value in case of network or other failure
+    }
+}
