@@ -1,3 +1,5 @@
+// File: src/services/helius.ts
+
 import type { AxiosResponse } from "axios";
 const axios = require("axios");
 const dotenv = require("dotenv");
@@ -7,7 +9,7 @@ dotenv.config();
 const HELIUS_API_KEY = process.env.HELIUS_API_KEY as string;
 
 if (!HELIUS_API_KEY) {
-    throw new Error("HELIUS_API_KEY not configured in environment variables.");
+    throw new Error("HELIUS_API_KEY not configured in environment variables.");
 }
 
 // Construct the base URLs
@@ -20,32 +22,29 @@ const HELIUS_ENHANCED_API_URL = `https://api.helius.xyz/v0`;
 
 /**
  * Centralized function for making JSON-RPC requests (POST) to Helius.
- * Note: This helper is for RPC methods that accept an array of parameters.
- * @param method The JSON-RPC method to call.
- * @param params The parameters for the method.
  */
 async function heliusRpcRequest<T>(method: string, params: any[]): Promise<T> {
-    const body = {
-        jsonrpc: "2.0",
-        id: 1,
-        method,
-        params,
-    };
+    const body = {
+        jsonrpc: "2.0",
+        id: 1,
+        method,
+        params,
+    };
 
-    try {
-        const { data }: AxiosResponse<any> = await axios.post(HELIUS_RPC_URL, body, {
-            timeout: 20_000,
-            headers: { "Content-Type": "application/json" },
-        });
+    try {
+        const { data }: AxiosResponse<any> = await axios.post(HELIUS_RPC_URL, body, {
+            timeout: 20_000,
+            headers: { "Content-Type": "application/json" },
+        });
 
-        if (data.error) {
-            throw new Error(`Helius RPC Error: ${data.error.message}`);
-        }
-        return data.result ?? null;
-    } catch (error) {
-        console.error(`RPC call to ${method} failed:`, error);
-        throw error;
-    }
+        if (data.error) {
+            throw new Error(`Helius RPC Error: ${data.error.message}`);
+        }
+        return data.result ?? null;
+    } catch (error) {
+        console.error(`RPC call to ${method} failed:`, error);
+        throw error;
+    }
 }
 
 // --------------------
@@ -53,12 +52,12 @@ async function heliusRpcRequest<T>(method: string, params: any[]): Promise<T> {
 // --------------------
 
 /**
- * Retrieves all assets (tokens and NFTs) for a given owner using Helius DAS API.
- * This is a significant performance improvement as it returns rich metadata and price info.
+ * Retrieves all assets (tokens and SOL) for a given owner from Helius DAS API.
+ * The response is transformed to a simplified format for the AI core.
  * @param ownerAddress The Solana wallet address of the owner.
- * @returns An array of assets, including their metadata, balance, and price information.
+ * @returns A simplified array of assets with 'symbol', 'balance', and 'price'.
  */
-async function getAssetsByOwner(ownerAddress: string): Promise<any[]> {
+export async function getHeliusAssets(ownerAddress: string): Promise<any[]> {
     const body = {
         jsonrpc: "2.0",
         id: "1",
@@ -68,7 +67,6 @@ async function getAssetsByOwner(ownerAddress: string): Promise<any[]> {
             displayOptions: {
                 showFungible: true,
                 showNativeBalance: true,
-                showInscription: true,
             },
             page: 1, 
             limit: 1000,
@@ -84,7 +82,30 @@ async function getAssetsByOwner(ownerAddress: string): Promise<any[]> {
         if (data.error) {
             throw new Error(`Helius RPC Error: ${data.error.message}`);
         }
-        return data.result?.items || [];
+        
+        // --- DATA TRANSFORMATION ---
+        const assets = data.result?.items || [];
+        const transformedHoldings = assets
+            .filter((asset: { token_info?: { price_info?: any } }) => asset.token_info?.price_info)
+            .map((asset: { token_info: { balance: number; decimals: number; price_info: { price_per_token: number }; symbol: string } }) => {
+                const balance = asset.token_info.balance / (10 ** asset.token_info.decimals);
+                const price = asset.token_info.price_info.price_per_token;
+                const symbol = asset.token_info.symbol;
+                return { symbol, balance, price };
+            });
+        
+        // Handle native SOL balance, which is a separate field
+        if (data.result.nativeBalance?.lamports) {
+            const solBalance = data.result.nativeBalance.lamports / 10**9;
+            const solPrice = data.result.nativeBalance.price_per_sol;
+            transformedHoldings.push({
+                symbol: 'SOL',
+                balance: solBalance,
+                price: solPrice,
+            });
+        }
+        
+        return transformedHoldings;
     } catch (error) {
         console.error(`RPC call to getAssetsByOwner failed:`, error);
         throw error;
@@ -92,12 +113,9 @@ async function getAssetsByOwner(ownerAddress: string): Promise<any[]> {
 }
 
 /**
- * Gets enhanced transactions for a wallet address using Helius Enhanced API.
- * @param address The Solana wallet address.
- * @param limit The number of transactions to retrieve.
- * @returns An array of enhanced transactions with a custom category.
+ * Gets enhanced and classified transactions for a wallet address using Helius Enhanced API.
  */
-async function getClassifiedTransactions(
+export async function getHeliusTransactions(
     address: string,
     limit: number = 50
 ): Promise<(any & { category: string })[]> {
@@ -107,7 +125,6 @@ async function getClassifiedTransactions(
             timeout: 20_000,
         });
 
-        // The transaction classification logic
         const CATEGORY_MAP: { [key: string]: string } = {
             "SWAP": "DEX_SWAP", "SWAP_LEGACY": "DEX_SWAP", "JUPITER": "DEX_SWAP", "RAYDIUM": "DEX_SWAP",
             "ORCA": "DEX_SWAP", "PUMP_AMM": "DEX_SWAP", "OPENBOOK": "DEX_SWAP",
@@ -146,12 +163,3 @@ async function getClassifiedTransactions(
         throw error;
     }
 }
-
-// --------------------
-// Exports
-// --------------------
-module.exports = {
-    getAssetsByOwner,
-    getClassifiedTransactions,
-    getHeliusRpcUrl: () => HELIUS_RPC_URL,
-};
