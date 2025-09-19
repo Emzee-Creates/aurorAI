@@ -9,7 +9,7 @@ dotenv.config();
 const HELIUS_API_KEY = process.env.HELIUS_API_KEY as string;
 
 if (!HELIUS_API_KEY) {
-    throw new Error("HELIUS_API_KEY not configured in environment variables.");
+    throw new Error("HELIUS_API_KEY not configured in environment variables.");
 }
 
 // Construct the base URLs
@@ -24,27 +24,27 @@ const HELIUS_ENHANCED_API_URL = `https://api.helius.xyz/v0`;
  * Centralized function for making JSON-RPC requests (POST) to Helius.
  */
 async function heliusRpcRequest<T>(method: string, params: any[]): Promise<T> {
-    const body = {
-        jsonrpc: "2.0",
-        id: 1,
-        method,
-        params,
-    };
+    const body = {
+        jsonrpc: "2.0",
+        id: 1,
+        method,
+        params,
+    };
 
-    try {
-        const { data }: AxiosResponse<any> = await axios.post(HELIUS_RPC_URL, body, {
-            timeout: 20_000,
-            headers: { "Content-Type": "application/json" },
-        });
+    try {
+        const { data }: AxiosResponse<any> = await axios.post(HELIUS_RPC_URL, body, {
+            timeout: 20_000,
+            headers: { "Content-Type": "application/json" },
+        });
 
-        if (data.error) {
-            throw new Error(`Helius RPC Error: ${data.error.message}`);
-        }
-        return data.result ?? null;
-    } catch (error) {
-        console.error(`RPC call to ${method} failed:`, error);
-        throw error;
-    }
+        if (data.error) {
+            throw new Error(`Helius RPC Error: ${data.error.message}`);
+        }
+        return data.result ?? null;
+    } catch (error) {
+        console.error(`RPC call to ${method} failed:`, error);
+        throw error;
+    }
 }
 
 // --------------------
@@ -55,7 +55,7 @@ async function heliusRpcRequest<T>(method: string, params: any[]): Promise<T> {
  * Retrieves all assets (tokens and SOL) for a given owner from Helius DAS API.
  * The response is transformed to a simplified format for the AI core.
  * @param ownerAddress The Solana wallet address of the owner.
- * @returns A simplified array of assets with 'symbol', 'balance', and 'price'.
+ * @returns A simplified array of assets with 'mint', 'symbol', 'balance', and 'price'.
  */
 export async function getHeliusAssets(ownerAddress: string): Promise<any[]> {
     const body = {
@@ -87,11 +87,12 @@ export async function getHeliusAssets(ownerAddress: string): Promise<any[]> {
         const assets = data.result?.items || [];
         const transformedHoldings = assets
             .filter((asset: { token_info?: { price_info?: any } }) => asset.token_info?.price_info)
-            .map((asset: { token_info: { balance: number; decimals: number; price_info: { price_per_token: number }; symbol: string } }) => {
+            .map((asset: { id: string; token_info: { balance: number; decimals: number; price_info: { price_per_token: number }; symbol: string } }) => {
                 const balance = asset.token_info.balance / (10 ** asset.token_info.decimals);
                 const price = asset.token_info.price_info.price_per_token;
                 const symbol = asset.token_info.symbol;
-                return { symbol, balance, price };
+                const mint = asset.id;
+                return { mint, symbol, balance, price };
             });
         
         // Handle native SOL balance, which is a separate field
@@ -99,6 +100,7 @@ export async function getHeliusAssets(ownerAddress: string): Promise<any[]> {
             const solBalance = data.result.nativeBalance.lamports / 10**9;
             const solPrice = data.result.nativeBalance.price_per_sol;
             transformedHoldings.push({
+                mint: 'So11111111111111111111111111111111111111112', // Standard SOL mint
                 symbol: 'SOL',
                 balance: solBalance,
                 price: solPrice,

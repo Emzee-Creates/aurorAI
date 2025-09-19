@@ -4,6 +4,9 @@ import { classifyUserBehavior } from '../services/behavior';
 import { getHeliusAssets, getHeliusTransactions } from '../services/helius'; // Import Helius service functions
 const { getRouteQuote, resolveMint } = require('../services/jupiter');
 
+// Official JitoSOL mint address
+const JITOSOL_MINT = 'J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn';
+
 /**
  * Generates personalized yield and risk recommendations.
  * @param {string} userAddress The user's wallet address.
@@ -13,7 +16,7 @@ export async function getRecommendations(userAddress: string): Promise<any[]> {
     // 1. Fetch live data from Helius
     const holdings = await getHeliusAssets(userAddress);
     const transactions = await getHeliusTransactions(userAddress);
-    
+
     // 2. Classify user behavior based on live transactions
     const { profile } = classifyUserBehavior(transactions);
 
@@ -22,19 +25,29 @@ export async function getRecommendations(userAddress: string): Promise<any[]> {
     // --- Rule 1: Staking recommendation for SOL holders ---
     const solHolding = holdings.find(h => h.symbol === 'SOL');
     if (solHolding && solHolding.balance > 0 && (profile === "DeFi Participant" || profile === "Long-term Holder")) {
-        recommendations.push({
-            type: 'Staking',
-            title: 'Earn yield on your SOL',
-            description: 'Convert your SOL to mSOL to earn staking rewards while keeping your assets liquid.',
-            action: {
-                protocol: 'Marinade',
-                type: 'stake',
-                fromToken: 'SOL',
-                toToken: 'mSOL',
-                amount: solHolding.balance
-            },
-            priority: 1
-        });
+        const inputMint = resolveMint('SOL');
+        const outputMint = JITOSOL_MINT;
+        const amount = solHolding.balance.toFixed(6);
+
+        try {
+            const jupiterQuote = await getRouteQuote({ inputMint, outputMint, amount });
+            
+            recommendations.push({
+                type: 'Staking',
+                title: 'Earn yield with liquid staking via Jito',
+                description: 'Convert your SOL to JitoSOL to earn staking rewards and MEV revenue while keeping your assets liquid.',
+                action: {
+                    protocol: 'Jupiter',
+                    type: 'stake',
+                    fromToken: 'SOL',
+                    toToken: 'JitoSOL',
+                    jupiterQuote: jupiterQuote
+                },
+                priority: 1
+            });
+        } catch (error) {
+            console.error(`Failed to get Jupiter quote for JitoSOL:`, error);
+        }
     }
 
     // --- Rule 2: Concentration Risk Management ---

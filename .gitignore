@@ -3,3 +3,5 @@ dist/
 .env
 src/tests/*.ts
 index.html
+.babelrc
+src/testSwap.js
