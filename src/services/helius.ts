@@ -159,6 +159,7 @@ export async function getHeliusTransactions(
         return txs.map((tx) => ({
             ...tx,
             category: classifyTransaction(tx),
+            signature: tx.signature || tx.txHash || tx.id || "unknown",
         }));
     } catch (error) {
         console.error(`Enhanced API call for address ${address} failed:`, error);
