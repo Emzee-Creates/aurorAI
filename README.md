@@ -1,94 +1,18 @@
-Backend API Documentation: Wallet Analytics Endpoint
-Yo, the core backend API for wallet analytics is now live and ready to be integrated. This documentation provides a breakdown of the functional route, the data it returns, and how to use it in the frontend.
-
-API Endpoint
-Method: GET
-
-URL: http://localhost:5000/analytics/:walletAddress
-
-Description: This endpoint fetches a comprehensive snapshot of a Solana wallet, including token balances, historical transactions, and portfolio value.
-
-URL Parameter:
-
-:walletAddress (required): The public key of the Solana wallet to analyze. use 9dFBCrJfjPVJUFwR4peJpKyNSAB4F2Di2HGa9JG6m3in just for testing
-
-Example Request
-You can test this route by making a GET request using a tool like Postman, or by simply pasting the URL into your browser:
-
-http://localhost:5000/analytics/9dFBCrJfjPVJUFwR4peJpKyNSAB4F2Di2HGa9JG6m3in
-JSON Response Structure
-A successful request will return a JSON object with the following structure. This is the data your frontend should expect and be built to display.
-
-JSON
-
-{
-  "wallet": "FGi6gUdHhecqNgnU5u3hDAcXTWgs6eRoJMiJqPZXuq6f",
-  "balances": [
-    {
-      "mint": "So11111111111111111111111111111111111111112",
-      "name": "Solana",
-      "symbol": "SOL",
-      "amount": 0.040260951,
-      "price": 150,
-      "valueUSD": 6.03914265,
-      "candlesticks": [
-        [1758051540000, 150.12, 150.35, 149.88, 150.05, 12345]
-      ]
-    },
-    {
-      "mint": "Es9HD91t63w5j8t3GfF6x2Pz3yXhJ4qS2P9mP6V5n3c7",
-      "name": "USDC",
-      "symbol": "USDC",
-      "amount": 500,
-      "price": 1,
-      "valueUSD": 500,
-      "candlesticks": []
-    }
-  ],
-  "transactions": [
-    {
-      "description": "...",
-      "type": "TRANSFER",
-      "source": "SYSTEM_PROGRAM",
-      "category": "TRANSFER",
-      "signature": "...",
-      "timestamp": 1758062342
-    }
-  ],
-  "totalPortfolioValueUSD": 506.03914265
+AI Yield and Risk Optimizer: Intelligence LayerWelcome to the Intelligence Layer of our AI Yield and Risk Optimizer application. This part of the project is dedicated to analyzing on-chain data and identifying key risks and opportunities in a user's decentralized finance (DeFi) portfolio.This risk.ts file is a crucial component of this layer, specifically designed to assess concentration risk. It analyzes a wallet's asset balances to determine if the portfolio is overly exposed to any single asset, which is a common source of risk in DeFi.FeaturesConcentration Risk Analysis: Calculates the percentage of each asset in a portfolio against the total portfolio value.Risk Thresholding: Flags assets that exceed a predefined concentration threshold (currently 25%).Structured Output: Provides a clear, actionable summary with a status ("High Risk" or "Low Risk"), a descriptive message, and a list of all risky assets.Edge Case Handling: Safely handles portfolios with a total value of zero, preventing runtime errors.Setup and UsageFollow these steps to set up the project and use the analyzeConcentrationRisk function locally.PrerequisitesNode.js: Ensure you have Node.js (version 14 or higher) and npm/yarn installed on your machine.Git: You'll need Git to clone the repository.Step 1: Clone the RepositoryClone this repository to your local machine:git clone <repository-url>
+cd <repository-name>
+Step 2: Install DependenciesSince this is a TypeScript project, you'll need to install the necessary packages.npm install
+# or
+yarn install
+Step 3: Run the ExampleThe index.ts file provides a simple example of how to use the analyzeConcentrationRisk function. You can run it directly using ts-node or by compiling the TypeScript to JavaScript.To install ts-node (a useful tool for running TypeScript files directly):npm install -g ts-node typescript
+Now, you can run the example:ts-node index.ts
+The output will be logged to your console, showing the risk analysis for the example portfolio.Endpoints (Functions)The core functionality is exposed through a single, well-defined function.analyzeConcentrationRisk(balances, totalPortfolioValueUSD)This function takes an array of asset balances and the total portfolio value to calculate and assess concentration risk.balances: An array of Balance objects, where each object should have a symbol and valueUSD.totalPortfolioValueUSD: A number representing the total value of the portfolio in USD.Return Value:The function returns a ConcentrationRiskAnalysis object with the following structure:{
+  status: "High Risk" | "Low Risk",
+  message: string,
+  riskyAssets: Array<{
+    symbol: string,
+    valueUSD: number,
+    percentage: number,
+  }>
 }
-Key Data Points to Highlight:
-wallet: The public key of the wallet that was analyzed.
-
-balances: An array of objects, each representing a fungible token (like SOL, USDC, or other tokens) or an NFT.
-
-mint: The unique identifier for the token. This is crucial for fetching images and further details on the frontend.
-
-name & symbol: Human-readable names for the asset.
-
-amount: The quantity of the token the wallet holds.
-
-valueUSD: The current value of this specific token in USD.
-
-candlesticks: An array of historical price data points for charting. It will be empty for tokens without a listed price (like most NFTs).
-
-transactions: An array of the wallet's recent on-chain activities.
-
-category: A custom field we added to classify transactions (e.g., DEX_SWAP, NFT_ACTIVITY, TRANSFER). This is perfect for filtering and organizing the transaction history on the frontend.
-
-totalPortfolioValueUSD: A single sum of all assets that have a USD value. This will be 0 if the wallet only contains NFTs or unlisted tokens.
-
-Frontend Integration Guidelines
-Input Field: Create a text input field on the frontend for the user to enter their Solana wallet address.
-
-API Call: When the user submits their address, construct the API request URL dynamically by appending the wallet address to the base URL.
-
-Data Display:
-
-Use the totalPortfolioValueUSD field to show the total value in a prominent card or header.
-
-Iterate through the balances array to display each asset. You can use the mint address to fetch asset images from a service like the Solana Token List.
-
-Display a table or list of recent transactions by iterating through the transactions array, using the category field to add labels or icons.
-
-I am available if you or your teammate have any questions on the data or its structure.
+Example Usage:See the index.ts file for a complete, runnable example.ConfigurationYou can easily adjust the sensitivity of the concentration risk analysis by modifying the CONCENTRATION_RISK_THRESHOLD constant in the risk.ts file.const CONCENTRATION_RISK_THRESHOLD = 0.25; // Change this value to adjust the risk threshold
+ContributionWe welcome contributions! If you have suggestions for new risk analysis features, performance improvements, or bug fixes, please open an issue or submit a pull request.LicenseThis project is licensed under the MIT License.
