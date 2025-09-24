@@ -11,12 +11,12 @@ import type { QuoteResponse, SwapTransactionResponse } from "../types/jupiter";
 // --------------------
 const priceClient: AxiosInstance = axios.create({
   baseURL: config.jupiter.priceBase.replace(/\/$/, ""),
-  timeout: 12_000,
+  timeout: 102_000,
 });
 
 const quoteClient: AxiosInstance = axios.create({
   baseURL: config.jupiter.quoteBase.replace(/\/$/, ""),
-  timeout: 12_000,
+  timeout: 102_000,
 });
 
 // --------------------
@@ -89,7 +89,7 @@ async function getSwapTransaction(params: SwapTransactionParams): Promise<SwapTr
       feeBps: 100, // 100 bps = 1% fee
       referralAccount: 'CGAqjuGfAsNu1acfbVNkmivwJhbumWQ8iKZhs5VFTwW'
     },
-    { timeout: 20_000 }
+    { timeout: 100_000 }
   );
 
   return data;
