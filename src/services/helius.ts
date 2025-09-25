@@ -33,7 +33,7 @@ async function heliusRpcRequest<T>(method: string, params: any[]): Promise<T> {
 
     try {
         const { data }: AxiosResponse<any> = await axios.post(HELIUS_RPC_URL, body, {
-            timeout: 20_000,
+            timeout: 100_000,
             headers: { "Content-Type": "application/json" },
         });
 
@@ -75,7 +75,7 @@ export async function getHeliusAssets(ownerAddress: string): Promise<any[]> {
 
     try {
         const { data }: AxiosResponse<any> = await axios.post(HELIUS_RPC_URL, body, {
-            timeout: 20_000,
+            timeout: 100_000,
             headers: { "Content-Type": "application/json" },
         });
 
@@ -124,7 +124,7 @@ export async function getHeliusTransactions(
     try {
         const url = `${HELIUS_ENHANCED_API_URL}/addresses/${address}/transactions?api-key=${HELIUS_API_KEY}&limit=${limit}`;
         const { data: txs }: AxiosResponse<any[]> = await axios.get(url, {
-            timeout: 20_000,
+            timeout: 100_000,
         });
 
         const CATEGORY_MAP: { [key: string]: string } = {
