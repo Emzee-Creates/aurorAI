@@ -109,7 +109,7 @@ function resolveMint(symbolOrMint: string): string {
   return SYMBOL_TO_MINT[symbolOrMint] || symbolOrMint;
 }
 
-module.exports = {
+export{
   getPriceByMint,
   getRouteQuote,
   getSwapTransaction,

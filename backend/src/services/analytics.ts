@@ -3,7 +3,8 @@ import { getHeliusAssets, getHeliusTransactions } from './helius';
 import { analyzeConcentrationRisk } from './risk';
 import { analyzeSolStaking } from './staking';
 import { classifyUserBehavior } from './behavior';
-import { getCoinGeckoOHLC } from './coingecko';
+// This import is correct and uses the cached function name:
+import { getCoinGeckoOHLCForCoins } from './coingecko';
 
 // The type for a single asset holding, ensuring the symbol property is always present
 interface Holding {
@@ -22,13 +23,20 @@ export interface WalletAnalytics {
     concentrationRisk: ReturnType<typeof analyzeConcentrationRisk>;
     solStakingAnalysis: ReturnType<typeof analyzeSolStaking>;
     userBehavior: ReturnType<typeof classifyUserBehavior>;
-    candlestickData?: number[][] | null; // Allow null for type compatibility
+    // Update the type to handle multiple coin data
+    candlestickData?: Record<string, number[][] | null> | null;
 }
 
 export async function getWalletAnalytics(
     walletAddress: string
 ): Promise<WalletAnalytics | null> {
     try {
+        // 1. ADDED: Initial validation check for the wallet address
+        if (!walletAddress) {
+            console.error("Wallet address is missing.");
+            return null;
+        }
+
         const [holdings, transactions] = await Promise.all([
             getHeliusAssets(walletAddress),
             getHeliusTransactions(walletAddress),
@@ -55,9 +63,11 @@ export async function getWalletAnalytics(
         const solStakingAnalysis = analyzeSolStaking(solHolding?.balance || 0);
         const userBehavior = classifyUserBehavior(transactions);
 
-        // Fetch candlestick data for a key asset, e.g., Solana
-        // We'll use "solana" as the CoinGecko ID
-        const solanaCandlestickData = await getCoinGeckoOHLC('solana', 30);
+        // Define the coins you want to fetch candlestick data for
+        const coinsToFetch = ['solana', 'usd-coin'];
+
+        // LINE 60 CORRECTION CHECK: This line now definitively uses the correct, cached function name
+        const candlestickData = await getCoinGeckoOHLCForCoins(coinsToFetch, 30);
 
 
         return {
@@ -68,11 +78,13 @@ export async function getWalletAnalytics(
             concentrationRisk: analyzeConcentrationRisk(holdingsWithValues, totalPortfolioValueUSD),
             solStakingAnalysis,
             userBehavior,
-            candlestickData: solanaCandlestickData,
+            candlestickData,
         };
 
     } catch (err) {
+        // Ensure errors are logged before being re-thrown (if needed) or returning null
         console.error("Error in getWalletAnalytics:", err);
-        throw err;
+        // It's often better to return null in an async handler than to re-throw and crash the request listener
+        return null;
     }
 }

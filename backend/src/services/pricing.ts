@@ -8,52 +8,98 @@ const BIRDEYE_API_URL = "https://public-api.birdeye.so/defi/price";
 // IMPORTANT: Replace this with your actual Birdeye API Key
 const BIRDEYE_API_KEY = process.env.BIRDEYE_API_KEY;
 if (!BIRDEYE_API_KEY) {
+    // Note: In a real environment, you might just warn and return null for Birdeye calls, 
+    // but throwing here respects the original code's requirement.
     throw new Error("BIRDEYE_API_KEY not configured in environment variables.");
 }
 
 // Solana's official mint address
 const SOLANA_MINT_ADDRESS = "So11111111111111111111111111111111111111112";
 
-// Cache to store prices and avoid hitting rate limits
+// Cache to store prices and avoid hitting rate limits (In-Memory Cache)
 const priceCache = new Map();
-const CACHE_LIFETIME = 60 * 1000; // 60 seconds
+const CACHE_LIFETIME = 60 * 1000; // 60 seconds TTL for spot prices
+
+/**
+ * Helper function to fetch a single coin's current USD price from CoinGecko, 
+ * using the shared in-memory cache. This addresses the 429 errors for spot price checks.
+ */
+async function fetchCoinGeckoSpotPrice(coinId: string): Promise<number | null> {
+    const cacheKey = `spot_price_${coinId}`;
+    const cachedData = priceCache.get(cacheKey);
+
+    // CACHE HIT CHECK
+    if (cachedData && Date.now() - cachedData.timestamp < CACHE_LIFETIME) {
+        // console.log(`[Cache Hit] CoinGecko Spot Price for ${coinId}`); // Optional: reduce log spam
+        return cachedData.data.price;
+    }
+
+    // API CALL
+    try {
+        const response = await axios.get(
+            `${COINGECKO_API_URL}/simple/price?ids=${coinId}&vs_currencies=usd`
+        );
+        const price = response.data[coinId]?.usd || null;
+
+        // CACHE SET (Only on successful price retrieval)
+        if (price !== null) {
+            priceCache.set(cacheKey, { timestamp: Date.now(), data: { price } });
+        }
+        return price;
+    } catch (err: any) {
+        // ERROR HANDLING
+        if (axios.isAxiosError(err) && err.response?.status === 429) {
+            // Specific handling for rate limit
+            console.error(`[Rate Limit] CoinGecko Spot Price for ${coinId} hit 429. Returning null.`);
+        } else {
+            console.error(`Error fetching CoinGecko Spot Price for ${coinId}:`, err.message);
+        }
+        return null;
+    }
+}
+
 
 /**
  * Fetches historical price data and candlesticks for a specific CoinGecko coin ID.
- * @param {string} coinId The CoinGecko coin ID (e.g., "solana").
+ * It uses the cached spot price helper and makes a separate OHLC call.
+ * * NOTE: The OHLC data call still needs external (file-based) caching 
+ * provided by the getCoinGeckoOHLCForCoins function you previously updated.
+ * * @param {string} coinId The CoinGecko coin ID (e.g., "solana").
  * @param {number} daysCandlestick The number of days of historical data to fetch.
  * @returns {Promise<object>} An object with the current price and historical candlesticks.
  */
 export async function getCoinGeckoInfo(coinId: string, daysCandlestick: number = 7) {
+    // 1. Fetch current price using the CACHED helper function
+    const price = await fetchCoinGeckoSpotPrice(coinId);
+
+    // 2. Fetch OHLC data (this is the expensive, less frequent call)
+    let candlesticks = [];
     try {
         const ohlcResponse = await axios.get(
             `${COINGECKO_API_URL}/coins/${coinId}/ohlc?vs_currency=usd&days=${daysCandlestick}`
         );
-        const candlesticks = ohlcResponse.data || [];
-
-        const priceResponse = await axios.get(
-            `${COINGECKO_API_URL}/simple/price?ids=${coinId}&vs_currencies=usd`
-        );
-        const price = priceResponse.data[coinId]?.usd || null;
-
-        const formattedCandlesticks = candlesticks.map((candle: any[]) => ({
-            timestamp: candle[0],
-            open: candle[1],
-            high: candle[2],
-            low: candle[3],
-            close: candle[4],
-        }));
-
-        return { price, candlesticks: formattedCandlesticks };
-    } catch (err) {
-        console.error(`Error fetching from CoinGecko for ${coinId}:`, err);
-        return { price: null, candlesticks: [] };
+        candlesticks = ohlcResponse.data || [];
+    } catch (err: any) {
+         // Log the OHLC error separately
+         console.error(`Error fetching OHLC from CoinGecko for ${coinId}:`, err.message);
     }
+    
+    // 3. Format the data
+    const formattedCandlesticks = candlesticks.map((candle: any[]) => ({
+        timestamp: candle[0],
+        open: candle[1],
+        high: candle[2],
+        low: candle[3],
+        close: candle[4],
+    }));
+
+    return { price, candlesticks: formattedCandlesticks };
 }
 
 /**
  * The main function to get a token's real-time price.
- * @param {string} mintAddress The token's Solana mint address.
+ * This is primarily responsible for the price of assets in a wallet.
+ * * @param {string} mintAddress The token's Solana mint address.
  * @param {string} symbol The token symbol.
  * @returns {Promise<object>} Token info with price.
  */
@@ -61,22 +107,21 @@ export async function getTokenInfo(mintAddress: string, symbol: string) {
     const cacheKey = mintAddress;
     const cachedData = priceCache.get(cacheKey);
 
+    // CACHE HIT CHECK (Uses the token's mint address/key for its price)
     if (cachedData && Date.now() - cachedData.timestamp < CACHE_LIFETIME) {
+        // console.log(`[Cache Hit] Token Price for ${symbol}`); // Optional: reduce log spam
         return cachedData.data;
     }
     
     let price = null;
 
     if (mintAddress === SOLANA_MINT_ADDRESS || symbol.toUpperCase() === "SOL") {
-        try {
-            const response = await axios.get(`${COINGECKO_API_URL}/simple/price?ids=solana&vs_currencies=usd`);
-            price = response.data.solana?.usd || null;
-        } catch (err) {
-            console.error("Error fetching SOL price from CoinGecko:", err);
-        }
+        // Use the CACHED helper function for SOL price
+        price = await fetchCoinGeckoSpotPrice('solana');
     } 
     else {
         let fallback = false;
+        // 1. Try Birdeye (Primary source)
         try {
             const url = `${BIRDEYE_API_URL}?address=${mintAddress}`;
             const response = await axios.get(url, {
@@ -95,6 +140,7 @@ export async function getTokenInfo(mintAddress: string, symbol: string) {
             fallback = true;
         }
 
+        // 2. Fallback to Dexscreener
         if (price === null || fallback) {
             try {
                 const { data } = await axios.get(`${DEXSCREENER_API_URL}/${mintAddress}`);
@@ -108,7 +154,10 @@ export async function getTokenInfo(mintAddress: string, symbol: string) {
     }
 
     const result = { price };
-    priceCache.set(cacheKey, { timestamp: Date.now(), data: result });
+    // CACHE SET (Only cache non-null prices)
+    if (price !== null) {
+        priceCache.set(cacheKey, { timestamp: Date.now(), data: result });
+    }
     
     return result;
 }

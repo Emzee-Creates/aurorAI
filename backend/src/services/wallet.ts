@@ -49,7 +49,7 @@ export async function getWalletTokensAndBalance(walletAddress: string) {
                  mint: "So11111111111111111111111111111111111111112",
                  symbol: "SOL",
                  balance: solBalance,
-                 value: solValue,
+                 valueUSD: solValue,
              });
         }
         
@@ -67,7 +67,7 @@ export async function getWalletTokensAndBalance(walletAddress: string) {
                     mint: mintAddress,
                     symbol: tokenInfo.symbol || "UNKNOWN", // Some tokens might not have a symbol
                     balance: amount,
-                    value: tokenValue,
+                    valueUSD: tokenValue,
                 });
             }
         }
