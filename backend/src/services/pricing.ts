@@ -175,14 +175,11 @@ export async function getMarinadeApy(): Promise<number> {
     const API_ENDPOINT = "https://api.marinade.finance/msol/apy/30d";
 
     try {
-        // 🔑 FIX: Expect the response.data to be the raw APY value (number/string)
         const response = await axios.get(API_ENDPOINT);
         const rawApyData = response.data; 
 
-        // 1. Convert the raw data to a number
         const parsedApy = parseFloat(rawApyData);
 
-        // 2. Validate the result: Must be a number and within a plausible range (e.g., 1% to 30%)
         if (!isNaN(parsedApy) && parsedApy > 0.01 && parsedApy < 0.3) {
             return parsedApy;
         }
