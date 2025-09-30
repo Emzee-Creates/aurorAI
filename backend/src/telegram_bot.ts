@@ -4,9 +4,9 @@ require('dotenv/config');
 const { PublicKey } = require('@solana/web3.js'); 
 
 // Your project services
-const { getRecommendations } = require('./src/services/recommendation'); 
-const { getHeliusAssets, getHeliusTransactions } = require('./src/services/helius');
-const { resolveMint, getRouteQuote } = require('./src/services/jupiter'); 
+const { getRecommendations } = require('./services/recommendation'); 
+const { getHeliusAssets, getHeliusTransactions } = require('./services/helius');
+const { resolveMint, getRouteQuote } = require('./services/jupiter'); 
 
 // Initialize the bot with your token and session middleware
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
