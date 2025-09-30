@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "dev:bot": "ts-node-dev --respawn --transpile-only telegram_bot.ts",
+    "dev:all": "concurrently -n API,BOT -c green,blue \"npm run dev\" \"npm run dev:bot\"",
     "build": "tsc",
-    "start": "node dist/index.js",
-    "start:bot": "node dist/telegram_bot.js",
+    "start": "concurrently -n API,BOT -c green,blue \"node dist/index.js\" \"node dist/telegram_bot.js\"",
     "test": "jest",
     "test:watch": "jest --watch"
   },
@@ -32,7 +32,8 @@
     "stats-lite": "^2.2.0",
     "telegraf": "^4.16.3",
     "telegraf-session-local": "^2.1.1",
-    "zod": "^4.1.8"
+    "zod": "^4.1.8",
+    "concurrently": "^9.2.1"
   },
   "devDependencies": {
     "@babel/core": "^7.28.4",
