@@ -3,7 +3,7 @@
   "compilerOptions": {
     // File Layout
     "rootDir": ".",                  
-    "outDir": "dist",
+    "outDir": "backend/dist",
 
     // Environment Settings
     "module": "commonjs",
