@@ -2,18 +2,13 @@
   // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
     // File Layout
-    "rootDir": "src",
+    "rootDir": ".",                  // allow both src/ and root files
     "outDir": "dist",
 
     // Environment Settings
-    // See also https://aka.ms/tsconfig/module
     "module": "commonjs",
     "target": "ES6",
     "types": ["node", "jest"],
-    // For nodejs:
-    // "lib": ["esnext"],
-    // "types": ["node"],
-    // and npm install -D @types/node
 
     // Other Outputs
     "sourceMap": true,
@@ -42,8 +37,12 @@
     "skipLibCheck": true,
 
     "esModuleInterop": true,
-    "resolveJsonModule": true,
-  }, "include": ["src/**/*.ts",
-    "tests/**/*.ts"
-, "src/new_test.ts"  ]   
+    "resolveJsonModule": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "telegram_bot.ts",
+    "tests/**/*.ts",
+    "src/new_test.ts"
+  ]
 }
