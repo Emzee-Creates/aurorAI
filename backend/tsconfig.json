@@ -2,8 +2,8 @@
   // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
     // File Layout
-    "rootDir": ".",                  
-    "outDir": "backend/dist",
+    "rootDir": "src",                 
+    "outDir": "dist",
 
     // Environment Settings
     "module": "commonjs",
@@ -32,9 +32,7 @@
     "resolveJsonModule": true
   },
   "include": [
-    "src/index.ts",       // explicitly include entry file
-    "src/**/*.ts",        // all other backend sources
-    "telegram_bot.ts",    // bot at root
+    "src/**/*.ts",
     "tests/**/*.ts"
   ],
   "exclude": [
