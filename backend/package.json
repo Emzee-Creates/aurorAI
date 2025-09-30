@@ -5,8 +5,10 @@
   "main": "index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev:bot": "ts-node-dev --respawn --transpile-only src/telegram_bot.ts",
     "build": "tsc",
     "start": "node dist/index.js",
+    "start:bot": "node dist/telegram_bot.js",
     "test": "jest",
     "test:watch": "jest --watch"
   },
