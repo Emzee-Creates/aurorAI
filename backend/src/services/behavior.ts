@@ -1,5 +1,3 @@
-// --- File: src/services/behavior.ts ---
-
 /**
  * Analyzes a user's transaction history to classify their on-chain behavior.
  * @param {Array<object>} transactions An array of Helius classified transactions.

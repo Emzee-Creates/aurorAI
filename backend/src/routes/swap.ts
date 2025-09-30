@@ -1,10 +1,9 @@
-// src/api/swap.ts (Needs to be integrated into your main Express app)
 import { Request, Response, Router } from 'express';
-import { getSwapTransaction } from '../services/jupiter'; // Import the correct function
+import { getSwapTransaction } from '../services/jupiter'; 
 
 const swapRouter = Router();
 
-// Endpoint: POST /jupiter/swap
+
 swapRouter.post('/swap', async (req: Request, res: Response) => {
     try {
         const { route, userPublicKey } = req.body;
@@ -29,5 +28,4 @@ swapRouter.post('/swap', async (req: Request, res: Response) => {
     }
 });
 
-// Assuming you export this router and mount it in your main app.
 export default swapRouter;

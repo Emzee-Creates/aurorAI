@@ -1,4 +1,3 @@
-// src/routes/wallet.ts (CommonJS + TypeScript)
 import type { Request, Response, NextFunction } from "express";
 
 const express = require("express");

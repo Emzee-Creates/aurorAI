@@ -1,7 +1,7 @@
 const { Router } = require("express");
 const health = Router();
 
-// Explicitly import types for better clarity
+
 const { Request, Response } = require("express");
 
 

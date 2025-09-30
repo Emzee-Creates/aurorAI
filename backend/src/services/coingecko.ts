@@ -1,25 +1,22 @@
 import { Request, Response } from 'express';
 import axios from 'axios';
-import * as fs from 'fs'; // Import File System module
-import * as path from 'path'; // Import Path module
+import * as fs from 'fs'; 
+import * as path from 'path'; 
 
 // --- CACHING CONFIGURATION ---
 const CACHE_FILE_PATH = path.join(__dirname, 'coingecko_ohlc_cache.json');
 // Set TTL to 24 hours (24 * 60 * 60 * 1000 ms)
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; 
 
-// Define the structure of a cached entry
 interface CacheEntry {
     data: number[][] | null;
     expiry: number; // Unix timestamp for expiry
 }
 
-// Define the structure of the entire cache file content
 interface CacheContent {
     [key: string]: CacheEntry;
 }
 
-// --- CACHE HELPER FUNCTIONS ---
 
 /**
  * Reads the entire cache file.
@@ -51,7 +48,6 @@ function writeCache(cache: CacheContent): void {
     }
 }
 
-// --- MAIN FUNCTION WITH CACHING LOGIC ---
 
 /**
  * Fetches OHLC data for multiple cryptocurrencies, prioritizing the local cache.
@@ -80,7 +76,6 @@ export async function getCoinGeckoOHLCForCoins(
         } else {
             // Cache miss or expired, needs fetching
             coinsToFetch.push(coinId);
-            // Optionally clean up expired entry from cache before fetching
             if (cachedEntry) delete cache[cacheKey]; 
         }
     }
@@ -143,14 +138,12 @@ export async function getCoinGeckoOHLCForCoins(
     return results;
 }
 
-// Example usage of the new function
+
 async function testFetch() {
-    const coins = ['solana', 'usd-coin']; // Add more to test the concurrent fetch logic
+    const coins = ['solana', 'usd-coin']; 
     console.log(`Fetching OHLC data for ${coins.join(' and ')}...`);
-    // First run will hit API, second run (if run within 24 hours) will hit cache.
     const data = await getCoinGeckoOHLCForCoins(coins, 7); 
     console.log('Received data:', Object.keys(data).map(key => `${key} has data: ${data[key] !== null}`));
 }
 
-// To run the test, uncomment the line below.
 testFetch();

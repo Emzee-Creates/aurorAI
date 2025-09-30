@@ -5,20 +5,15 @@ const axios = require("axios");
 const dotenv = require("dotenv");
 dotenv.config();
 
-// Get the API key from environment variables
 const HELIUS_API_KEY = process.env.HELIUS_API_KEY as string;
 
 if (!HELIUS_API_KEY) {
     throw new Error("HELIUS_API_KEY not configured in environment variables.");
 }
 
-// Construct the base URLs
+
 const HELIUS_RPC_URL = `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`;
 const HELIUS_ENHANCED_API_URL = `https://api.helius.xyz/v0`;
-
-// --------------------
-// Helper Functions
-// --------------------
 
 /**
  * Centralized function for making JSON-RPC requests (POST) to Helius.
@@ -47,9 +42,6 @@ async function heliusRpcRequest<T>(method: string, params: any[]): Promise<T> {
     }
 }
 
-// --------------------
-// Helius API Functions
-// --------------------
 
 /**
  * Retrieves all assets (tokens and SOL) for a given owner from Helius DAS API.

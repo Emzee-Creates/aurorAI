@@ -1,9 +1,8 @@
-// src/routes/risk.ts (CommonJS + TypeScript)
 import type { Request, Response, NextFunction } from "express";
 
 const express = require("express");
 const { z } = require("zod");
-// 💡 Add import for the wallet service function
+
 const { getWalletTokensAndBalance } = require("../services/wallet"); 
 const { 
   analyzeConcentrationRisk,
@@ -19,7 +18,6 @@ const varBody = z.object({
 });
 
 
-// 💡 Make the handler async to use await
 risk.post(
   "/calculate-var",
   async (req: Request, res: Response, next: NextFunction) => {
@@ -42,9 +40,9 @@ risk.post(
            );
       }
 
-      // Now call your simplified backend function
+  
       const out = calculatePortfolioVaR(
-        balances, // Pass the real balances
+        balances, 
         timeHorizonDays ?? 1,
         confidenceLevel ?? 0.95
       );
@@ -56,5 +54,5 @@ risk.post(
   }
 );
 
-// ... (Rest of the file)
+
 module.exports = risk;

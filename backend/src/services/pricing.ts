@@ -167,27 +167,33 @@ export async function getTokenInfo(mintAddress: string, symbol: string) {
  * This is a good proxy for the general SOL staking APY.
  * @returns {Promise<number>} The current APY as a decimal (e.g., 0.075 for 7.5%).
  */
-export async function getMarinadeApy() {
-    // A reliable default APY in case the API call fails
+export async function getMarinadeApy(): Promise<number> {
+    // A reliable default APY in case the API call fails or returns an unparsable value
     const DEFAULT_APY = 0.075; 
+    
+    // API endpoint for 30-day average APY
+    const API_ENDPOINT = "https://api.marinade.finance/msol/apy/30d";
+
     try {
-        const response = await axios.get("https://api.marinade.finance/msol/apy/30d");
-        
-        // --- Add a check to ensure the response is valid and has the 'apy' field ---
-        const apy = response.data?.apy || response.data?.value || response.data?.apy_5_epochs;
-        if (response.status === 200 && response.data?.value) {
-            // Ensure the value is a number
-            const parsedApy = parseFloat(apy);
-            if (!isNaN(parsedApy)) {
-                return parsedApy;
-            }
+        // 🔑 FIX: Expect the response.data to be the raw APY value (number/string)
+        const response = await axios.get(API_ENDPOINT);
+        const rawApyData = response.data; 
+
+        // 1. Convert the raw data to a number
+        const parsedApy = parseFloat(rawApyData);
+
+        // 2. Validate the result: Must be a number and within a plausible range (e.g., 1% to 30%)
+        if (!isNaN(parsedApy) && parsedApy > 0.01 && parsedApy < 0.3) {
+            return parsedApy;
         }
 
-        // Fallback to the default APY if the response is not as expected
-        console.warn("Marinade APY API returned an unexpected response. Using default APY.");
+        // Fallback if the value is 0 or outside the expected range
+        console.warn(`Marinade APY API returned an unexpected value (${rawApyData}). Using default APY.`);
         return DEFAULT_APY;
+        
     } catch (error) {
-        console.error("Error fetching Marinade APY:", error);
-        return DEFAULT_APY; // Return a default value in case of network or other failure
+        // Return a default value in case of network or other failure
+        console.error("Error fetching Marinade APY (Network/API failure). Returning default APY:", error);
+        return DEFAULT_APY; 
     }
 }

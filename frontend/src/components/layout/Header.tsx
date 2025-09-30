@@ -6,7 +6,7 @@ export default function Header() {
 
   return (
     <header className="flex justify-between items-center bg-white shadow p-4">
-      <h1 className="text-xl font-bold text-green-600">AI Risk + Yield Optimizer</h1>
+      <h1 className="text-xl font-bold text-green-600">aurorAI yield and risk optimizer</h1>
 
       <div className="flex items-center gap-4">
         {/* If wallet is connected */}

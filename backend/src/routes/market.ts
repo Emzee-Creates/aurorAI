@@ -21,10 +21,7 @@ function resolveMint(value: string): string {
   return SYMBOL_TO_MINT[value] ?? value;
 }
 
-// --- API Endpoints ---
 
-// --- GET /market/price/:mint ---
-// Fetches the price of a given mint address or symbol.
 market.get("/price/:mint", async (req: Request<{ mint: string }>, res: Response, next: NextFunction) => {
   try {
     const mint = resolveMint(req.params.mint);
@@ -40,9 +37,7 @@ market.get("/price/:mint", async (req: Request<{ mint: string }>, res: Response,
   }
 });
 
-// --- POST /market/swap ---
-// Handles the entire swap process in one atomic operation.
-// It first fetches a fresh route quote and then immediately requests the swap transaction.
+
 const swapSchema = z.object({
   inputMint: z.string(),
   outputMint: z.string(),
@@ -97,10 +92,9 @@ market.post("/swap", async (req: Request<{}, {}, SwapRequestBody>, res: Response
     res.json(tx);
   } catch (e) {
     console.error("[/swap] Error:", e);
-    // Pass the error to the Express error handler
     next(e);
   }
 });
 
-// Export the router
+
 module.exports = market;

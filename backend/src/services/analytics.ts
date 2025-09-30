@@ -3,7 +3,6 @@ import { getHeliusAssets, getHeliusTransactions } from './helius';
 import { analyzeConcentrationRisk } from './risk';
 import { analyzeSolStaking } from './staking';
 import { classifyUserBehavior } from './behavior';
-// This import is correct and uses the cached function name:
 import { getCoinGeckoOHLCForCoins } from './coingecko';
 
 // The type for a single asset holding, ensuring the symbol property is always present
@@ -16,14 +15,12 @@ interface Holding {
 
 export interface WalletAnalytics {
     wallet: string;
-    // Update the balances type to use the new Holding interface
     balances: Array<Holding & { valueUSD: number }>;
     transactions: any[];
     totalPortfolioValueUSD: number;
     concentrationRisk: ReturnType<typeof analyzeConcentrationRisk>;
     solStakingAnalysis: ReturnType<typeof analyzeSolStaking>;
     userBehavior: ReturnType<typeof classifyUserBehavior>;
-    // Update the type to handle multiple coin data
     candlestickData?: Record<string, number[][] | null> | null;
 }
 
@@ -82,9 +79,8 @@ export async function getWalletAnalytics(
         };
 
     } catch (err) {
-        // Ensure errors are logged before being re-thrown (if needed) or returning null
+  
         console.error("Error in getWalletAnalytics:", err);
-        // It's often better to return null in an async handler than to re-throw and crash the request listener
         return null;
     }
 }
