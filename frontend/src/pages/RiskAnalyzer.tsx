@@ -63,17 +63,16 @@ export default function RiskAnalyzer() {
               {/* Top Section: Risk Summary + Yield Card */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {(walletData?.concentrationRisk || walletData?.solStakingAnalysis) && (
-  <RiskSummaryCard
-    concentrationRisk={walletData?.concentrationRisk}
-    solStakingAnalysis={walletData?.solStakingAnalysis}
-  />
-)}
+                  <RiskSummaryCard
+                    concentrationRisk={walletData?.concentrationRisk}
+                    solStakingAnalysis={walletData?.solStakingAnalysis}
+                  />
+                )}
 
-
+                {/* ✅ Updated YieldCard usage */}
                 <YieldCard
-                  apy={walletData.solStakingAnalysis?.apy || 0}
-                  yieldValue={walletData.solStakingAnalysis?.yield || 0}
-                  yieldUsd={walletData.solStakingAnalysis?.yieldUsd || 0}
+                  solBalance={walletData.solBalance || 0}
+                  solPrice={walletData.solStakingAnalysis?.currentPriceUSD || 0}
                 />
               </div>
 
