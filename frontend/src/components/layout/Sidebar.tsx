@@ -1,19 +1,39 @@
 import { Home, LineChart, FileText } from "lucide-react";
-import { Link } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 
 export default function Sidebar() {
+  const linkClasses =
+    "flex items-center gap-2 p-2 rounded-lg transition hover:bg-green-100";
+
+  const activeClasses = "bg-green-200 font-medium";
+
   return (
-    <aside className="w-64 bg-gray-100 p-4 border-r">
+    <aside className="w-64 bg-white border-r shadow-sm p-4">
       <nav className="space-y-2">
-        <Link to="/dashboard" className="flex items-center gap-2 p-2 rounded hover:bg-gray-200">
+        <NavLink
+          to="/dashboard"
+          className={({ isActive }) =>
+            `${linkClasses} ${isActive ? activeClasses : ""}`
+          }
+        >
           <Home size={18} /> Dashboard
-        </Link>
-        <Link to="/optimizer" className="flex items-center gap-2 p-2 rounded hover:bg-gray-200">
+        </NavLink>
+        <NavLink
+          to="/optimizer"
+          className={({ isActive }) =>
+            `${linkClasses} ${isActive ? activeClasses : ""}`
+          }
+        >
           <LineChart size={18} /> Yield Optimizer
-        </Link>
-        <Link to="/reports" className="flex items-center gap-2 p-2 rounded hover:bg-gray-200">
+        </NavLink>
+        <NavLink
+          to="/reports"
+          className={({ isActive }) =>
+            `${linkClasses} ${isActive ? activeClasses : ""}`
+          }
+        >
           <FileText size={18} /> Reports
-        </Link>
+        </NavLink>
       </nav>
     </aside>
   );
