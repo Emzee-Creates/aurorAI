@@ -108,7 +108,7 @@ export default function YieldOptimizerPage() {
                 <AssetYieldCard
                   title="Stake SOL (→ mSOL/JitoSOL)"
                   symbol="SOL"
-                  apy={0.0735}
+                  apy={7.35}
                   yieldValue={solYieldSol}
                   yieldUsd={solYieldUsd}
                   riskLevel="Low"
@@ -120,7 +120,7 @@ export default function YieldOptimizerPage() {
                 <AssetYieldCard
                   title="Swap SOL → USDC"
                   symbol="USDC"
-                  apy={0.05}
+                  apy={5}
                   yieldValue={usdcYieldUsd / 1}
                   yieldUsd={usdcYieldUsd}
                   riskLevel="Moderate"
