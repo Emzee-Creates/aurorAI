@@ -65,9 +65,8 @@ export default function Dashboard() {
 
                 {/* Yield / APY */}
                 <YieldCard
-                  apy={walletData.apy}
-                  yieldValue={walletData.yield}
-                  yieldUsd={walletData.yieldUsd}
+                  solBalance={walletData?.solBalance || 0} 
+                  solPrice={walletData?.solPriceUSD || 0}
                 />
 
                 {/* Risk Summary */}
