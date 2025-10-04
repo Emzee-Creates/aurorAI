@@ -34,7 +34,7 @@ export default function TransactionsTable({ transactions }: Props) {
   return (
     <div className="bg-white p-6 rounded-2xl shadow hover:shadow-lg transition">
       <h2 className="text-lg font-semibold mb-4 text-gray-800">
-        📜 Recent Transactions
+        Recent Transactions
       </h2>
 
       <table className="w-full text-sm">
