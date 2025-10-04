@@ -4,11 +4,10 @@ interface AssetYieldCardProps {
   title: string;          // e.g., "SOL Staking" or "USDC Swapped"
   symbol: string;         // e.g., "SOL" or "USDC"
   apy: number;
-  yieldValue: number;
-  yieldUsd: number;
-  
-  // ⭐ THE FIX: ADDING THE REQUIRED 'details' PROP
-  details: string;        // e.g., "Projected yield on swapping 13.8 SOL to USDC."
+  yieldValue: number;     // Yield in token units (SOL or USDC)
+  yieldUsd: number;       // Yield in USD
+
+  details: string;        // Context details for the card
 
   // Optional props
   riskLevel?: string; 
@@ -23,12 +22,12 @@ export default function AssetYieldCard({
   yieldUsd,
   riskLevel,
   isRecommended = false,
-  details, // ⭐ Destructure the new prop
+  details,
 }: AssetYieldCardProps) {
   
-  const safeApy = apy ? (apy * 100).toFixed(2) : "0.75";
-  const safeYield = yieldValue ? yieldValue.toFixed(4) : "0.115";
-  const safeYieldUsd = yieldUsd ? yieldUsd.toFixed(2) : "213.38";
+  const safeApy = apy ? apy.toFixed(2) : "0.00";
+  const safeYield = yieldValue ? yieldValue.toFixed(4) : "0.0000";
+  const safeYieldUsd = yieldUsd ? yieldUsd.toFixed(2) : "0.00";
 
   const cardClasses = `p-6 rounded-2xl shadow-lg transition-all duration-300 
     ${isRecommended 
@@ -42,7 +41,11 @@ export default function AssetYieldCard({
       <div className={cardClasses}>
           <h3 className={`text-xl font-extrabold mb-3 ${titleColor}`}>
               {title} 
-              {isRecommended && <span className="ml-2 text-sm bg-green-500 text-white px-2 py-0.5 rounded-full">✨ Recommended</span>}
+              {isRecommended && (
+                <span className="ml-2 text-sm bg-green-500 text-white px-2 py-0.5 rounded-full">
+                  ✨ Recommended
+                </span>
+              )}
           </h3>
           
           <div className="space-y-2 text-left">
@@ -72,13 +75,17 @@ export default function AssetYieldCard({
               {riskLevel && (
                   <p className="text-gray-600 flex justify-between border-t pt-2">
                       <span className="text-sm text-gray-500">Risk Level:</span>
-                      <span className={`font-semibold ${riskLevel === 'High' ? 'text-red-500' : riskLevel === 'Moderate' ? 'text-yellow-600' : 'text-green-500'}`}>
+                      <span className={`font-semibold ${
+                        riskLevel === 'High' ? 'text-red-500' : 
+                        riskLevel === 'Moderate' ? 'text-yellow-600' : 
+                        'text-green-500'
+                      }`}>
                           {riskLevel}
                       </span>
                   </p>
               )}
 
-              {/* ⭐ NEW: Details/Context */}
+              {/* Details */}
               <p className="text-xs text-gray-400 mt-4 pt-2 border-t border-dashed">
                   {details}
               </p>
