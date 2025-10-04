@@ -22,13 +22,16 @@ export interface WalletAnalytics {
     solStakingAnalysis: ReturnType<typeof analyzeSolStaking>;
     userBehavior: ReturnType<typeof classifyUserBehavior>;
     candlestickData?: Record<string, number[][] | null> | null;
+
+    // ✅ Added explicit fields for frontend use
+    solBalance: number;
+    solPriceUSD: number;
 }
 
 export async function getWalletAnalytics(
     walletAddress: string
 ): Promise<WalletAnalytics | null> {
     try {
-        // 1. ADDED: Initial validation check for the wallet address
         if (!walletAddress) {
             console.error("Wallet address is missing.");
             return null;
@@ -44,10 +47,10 @@ export async function getWalletAnalytics(
             return null;
         }
 
-        // Find the SOL holding on the original array, which has the `symbol` property
+        // Find the SOL holding
         const solHolding = holdings.find((h: Holding) => h.symbol === 'SOL');
 
-        // Calculate and add the USD value to each asset, preserving all original properties
+        // Calculate USD values for all holdings
         const holdingsWithValues = holdings.map((asset: Holding) => ({
             ...asset,
             valueUSD: asset.balance * (asset.price || 0)
@@ -57,15 +60,14 @@ export async function getWalletAnalytics(
             return sum + (asset.valueUSD || 0);
         }, 0);
 
-        const solStakingAnalysis = analyzeSolStaking(solHolding?.balance || 0);
+        const solBalance = solHolding?.balance || 0;
+        const solPriceUSD = solHolding?.price || 0;
+
+        const solStakingAnalysis = analyzeSolStaking(solBalance);
         const userBehavior = classifyUserBehavior(transactions);
 
-        // Define the coins you want to fetch candlestick data for
         const coinsToFetch = ['solana', 'usd-coin'];
-
-        // LINE 60 CORRECTION CHECK: This line now definitively uses the correct, cached function name
         const candlestickData = await getCoinGeckoOHLCForCoins(coinsToFetch, 30);
-
 
         return {
             wallet: walletAddress,
@@ -76,10 +78,13 @@ export async function getWalletAnalytics(
             solStakingAnalysis,
             userBehavior,
             candlestickData,
+
+            // ✅ Explicitly include for frontend
+            solBalance,
+            solPriceUSD,
         };
 
     } catch (err) {
-  
         console.error("Error in getWalletAnalytics:", err);
         return null;
     }
