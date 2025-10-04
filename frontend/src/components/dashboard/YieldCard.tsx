@@ -1,25 +1,22 @@
 interface YieldCardProps {
-  apy: number | null | undefined;
-  yieldValue: number | null | undefined;
-  yieldUsd: number | null | undefined;
+  solBalance: number; // pass in wallet SOL balance
+  solPrice: number;   // pass in current SOL price in USD
 }
 
-export default function YieldCard({ apy, yieldValue, yieldUsd }: YieldCardProps) {
-  const safeApy =
-    apy !== null && apy !== undefined ? (apy * 100).toFixed(2) : "0.00";
+export default function YieldCard({ solBalance, solPrice }: YieldCardProps) {
+  // Hardcoded APY
+  const apy = 7.35;
 
-  const safeYield =
-    yieldValue !== null && yieldValue !== undefined ? yieldValue.toFixed(4) : "0.0000";
-
-  const safeYieldUsd =
-    yieldUsd !== null && yieldUsd !== undefined ? yieldUsd.toFixed(2) : "0.00";
+  // Calculate expected yield
+  const yieldSol = (solBalance * apy) / 100;
+  const yieldUsd = yieldSol * solPrice;
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow text-center">
       <h3 className="text-lg font-bold mb-2">Staking Yield</h3>
-      <p className="text-gray-600">APY: {safeApy}%</p>
+      <p className="text-gray-600">APY: {apy.toFixed(2)}%</p>
       <p className="text-gray-600">
-        Annual Yield: {safeYield} SOL (~${safeYieldUsd})
+        Annual Yield: {yieldSol.toFixed(4)} SOL (~${yieldUsd.toFixed(2)})
       </p>
     </div>
   );
