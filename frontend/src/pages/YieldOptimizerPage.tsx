@@ -2,29 +2,19 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 
-// === LAYOUT IMPORTS (NEW) ===
+// === LAYOUT IMPORTS ===
 import Header from '../components/layout/Header';
 import Sidebar from '../components/layout/Sidebar';
 import Footer from '../components/layout/Footer';
-// ============================
+// ======================
 
-// ✅ Import your custom wallet context hook
 import { useWalletContext } from '../context/WalletContext'; 
 
-// FIX 2: Use 'import type' for external types
-import type { 
-    YieldOptimizationData, 
-    QuoteResponse, 
-} from '../api/yield'; 
+import type { YieldOptimizationData, QuoteResponse } from '../api/yield'; 
+import { fetchYieldOptimizationData, executeSwapTransaction } from '../api/yield'; 
 
-import { 
-    fetchYieldOptimizationData, 
-    executeSwapTransaction, 
-} from '../api/yield'; // Keep normal import for functions
+import AssetYieldCard from '../components/AssetYieldCard'; 
 
-import AssetYieldCard from '../components/yield/AssetYieldCard'; 
-
-// FIX 3: Define explicit interface for TransactionModal props
 interface TransactionModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -38,7 +28,7 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, se
             {serializedTx ? (
                 <>
                     <p className="mb-4 text-gray-600">
-                        A transaction is ready. Please **sign the transaction** in your wallet to execute the swap.
+                        A transaction is ready. Please sign the transaction in your wallet to execute the swap.
                     </p>
                     <div className="text-xs text-gray-500 break-words max-h-20 overflow-y-scroll p-2 bg-gray-100 rounded">
                         Transaction Data: {serializedTx.substring(0, 100)}...
@@ -57,7 +47,6 @@ const TransactionModal: React.FC<TransactionModalProps> = ({ isOpen, onClose, se
         </div>
     </div>
 );
-
 
 export default function YieldOptimizerPage() {
     const { walletAddress } = useWalletContext(); 
@@ -91,35 +80,34 @@ export default function YieldOptimizerPage() {
         loadData();
     }, [walletAddress]);
 
-
     // --- Comparison and Recommendation Logic ---
-    const { solYieldUsd, usdcYieldUsd, recommendedOption, swapQuote } = useMemo(() => {
-        const solYield = data?.solStaking.yieldUsd || 0;
+    const { solYieldSol, solYieldUsd, usdcYieldUsd, recommendedOption, swapQuote } = useMemo(() => {
+        const apy = 7.35; // ✅ Hardcoded APY for SOL staking
+
+        const solBalance = data?.solBalance || 0;
+        const solPrice = data?.solPrice || 0;
+
+        // ✅ Calculate SOL staking yield
+        const yieldSol = (solBalance * apy) / 100;
+        const yieldUsd = yieldSol * solPrice;
+
+        // ✅ USDC yield from API
         const usdcYield = data?.swapOptimization.usdcYield?.projectedUsdYield || 0;
         const quote = data?.swapOptimization.swapQuote;
 
+        // ✅ Recommendation logic
         let recommendation: 'SOL' | 'USDC' | 'None' = 'None';
-        // Note: Logic ensures USDC must be strictly greater and positive to be recommended
-        if (solYield > usdcYield) {
+        if (yieldUsd > usdcYield) {
             recommendation = 'SOL';
-        } else if (usdcYield > solYield && usdcYield > 0) {
+        } else if (usdcYield > yieldUsd && usdcYield > 0) {
             recommendation = 'USDC';
-        } else if (solYield > 0) {
-             // Default to SOL if yields are zero or near-equal, but SOL has a base yield
-             recommendation = 'SOL';
+        } else if (yieldUsd > 0) {
+            recommendation = 'SOL';
         }
 
-
-        return { 
-            solYieldUsd: solYield, 
-            usdcYieldUsd: usdcYield, 
-            recommendedOption: recommendation,
-            swapQuote: quote,
-        };
+        return { solYieldSol: yieldSol, solYieldUsd: yieldUsd, usdcYieldUsd: usdcYield, recommendedOption: recommendation, swapQuote: quote };
     }, [data]);
-    
 
-    // --- Swap Execution Handler ---
     const handleExecuteSwap = async (route: QuoteResponse) => {
         if (!walletAddress) { 
             alert('Wallet address is missing. Please connect your wallet.');
@@ -131,7 +119,6 @@ export default function YieldOptimizerPage() {
             const txResponse = await executeSwapTransaction(route, walletAddress);
             setSerializedTransaction(txResponse.swapTransaction);
             setShowTxModal(true);
-
         } catch (error) {
             console.error("Error initiating swap:", error);
             alert("Failed to create swap transaction. Check console for details.");
@@ -140,16 +127,15 @@ export default function YieldOptimizerPage() {
         }
     };
 
-
-    // --- Dynamic Content Rendering ---
+    // --- Dynamic Content ---
     let mainContent;
 
     if (!walletAddress) {
-        mainContent = <div className="p-8 text-center text-gray-700">Please **connect your wallet** to analyze yield opportunities.</div>;
+        mainContent = <div className="p-8 text-center text-gray-700">Please connect your wallet to analyze yield opportunities.</div>;
     } else if (isLoading) {
         mainContent = <div className="p-8 text-center text-gray-700">Loading yield optimization data...</div>;
     } else if (!data || data.solBalance === 0) {
-        mainContent = <div className="p-8 text-center text-gray-700">No **SOL** found in wallet. Add SOL to enable yield analysis.</div>;
+        mainContent = <div className="p-8 text-center text-gray-700">No SOL found in wallet. Add SOL to enable yield analysis.</div>;
     } else {
         mainContent = (
             <div className="max-w-6xl mx-auto space-y-6">
@@ -162,37 +148,37 @@ export default function YieldOptimizerPage() {
                     <AssetYieldCard 
                         title="Current SOL Staking Yield"
                         symbol="SOL"
-                        apy={data.solStaking.apy}
-                        yieldValue={data.solBalance} // Using solBalance for yieldValue
-                        yieldUsd={data.solStaking.yieldUsd}
-                        riskLevel={data.solStaking.riskLevel}
+                        apy={7.35}
+                        yieldValue={solYieldSol}
+                        yieldUsd={solYieldUsd}
+                        riskLevel={data?.solStaking.riskLevel || "Moderate"}
                         isRecommended={recommendedOption === 'SOL'}
-                        details={`Analysis based on your current ${data.solBalance.toFixed(4)} SOL balance.`}
+                        details={`Analysis based on your current ${data?.solBalance.toFixed(4)} SOL balance.`}
                     />
 
                     {/* 2. USDC Swap/Yield Card */}
                     <AssetYieldCard 
                         title="USDC Swap Yield Opportunity"
                         symbol="USDC"
-                        apy={data.swapOptimization.usdcYield?.apy || 0}
-                        yieldValue={data.swapOptimization.quotedUsdcAmount} 
-                        yieldUsd={data.swapOptimization.usdcYield?.projectedUsdYield || 0}
+                        apy={data?.swapOptimization.usdcYield?.apy || 0}
+                        yieldValue={data?.swapOptimization.quotedUsdcAmount || 0} 
+                        yieldUsd={usdcYieldUsd}
                         riskLevel="Low (Stablecoin)"
                         isRecommended={recommendedOption === 'USDC'}
-                        details={`Projected yield if ${data.solBalance.toFixed(4)} SOL were swapped to USDC.`}
+                        details={`Projected yield if ${data?.solBalance.toFixed(4)} SOL were swapped to USDC.`}
                     />
                 </div>
                 
                 <hr className="my-8 border-gray-200" />
 
-                {/* 3. Action Section */}
+                {/* Action Section */}
                 <div className="p-6 bg-white rounded-xl shadow-lg border border-gray-100 text-center">
                     <h2 className="text-2xl font-semibold mb-4 text-gray-800">Optimization Action</h2>
                     
                     {recommendedOption === 'USDC' && swapQuote && (
                         <>
                             <p className="text-lg text-green-700 mb-4 font-medium">
-                                Recommendation: Swapping to USDC is estimated to yield **${(usdcYieldUsd - solYieldUsd).toFixed(2)}** more annually.
+                                Recommendation: Swapping to USDC is estimated to yield ${(usdcYieldUsd - solYieldUsd).toFixed(2)} more annually.
                             </p>
                             <button 
                                 onClick={() => handleExecuteSwap(swapQuote)}
@@ -219,7 +205,6 @@ export default function YieldOptimizerPage() {
                     )}
                 </div>
 
-                {/* Transaction Modal */}
                 <TransactionModal 
                     isOpen={showTxModal} 
                     onClose={() => setShowTxModal(false)} 
@@ -229,8 +214,6 @@ export default function YieldOptimizerPage() {
         );
     }
 
-
-    // --- Final Render with Dashboard Layout ---
     return (
         <div className="flex min-h-screen">
             <Sidebar />
