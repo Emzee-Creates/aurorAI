@@ -33,7 +33,7 @@ export default function Backtest() {
   const handleRunBacktest = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/backtest", {
+      const res = await fetch("https://aurorai.onrender.com/api/backtest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
