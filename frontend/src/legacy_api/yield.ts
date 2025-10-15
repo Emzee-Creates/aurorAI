@@ -2,9 +2,7 @@
 import axios from "axios";
 
 // Configuration for the base URL
-//const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://aurorai.onrender.com";
-const API_BASE_URL = "http://localhost:5000";
-const BASE_URL = API_BASE_URL;
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://aurorai.onrender.com";
 
 // --- INLINE TYPE DEFINITIONS (To avoid cross-project path issues) ---
 // These are simplified definitions matching the critical fields needed by the frontend

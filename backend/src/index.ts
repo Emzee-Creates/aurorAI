@@ -10,6 +10,7 @@ const risk = require("./routes/risk");
 const wallet = require("./routes/wallet");
 const analyticRoutes = require("./routes/analytics");
 import yieldOptimizerRouter from "./routes/yieldOptimizer";
+import backtestRouter from "./routes/backtest";
 
 const app = express();
 
@@ -59,6 +60,7 @@ app.use("/risk", risk);
 app.use("/wallet", wallet);
 app.use("/analytics", analyticRoutes);
 app.use("/api/optimize-yield", yieldOptimizerRouter);
+app.use("/api/backtest", backtestRouter);
 
 app.use((err: any, _req: any, res: any, _next: any) => {
   logger.error({ err }, "Unhandled error");
