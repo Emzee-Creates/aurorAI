@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ChartCard from "@/components/ChartCard";
 
 interface PortfolioPoint {
@@ -22,36 +22,64 @@ interface BacktestResponse {
 }
 
 export default function Backtest() {
-  const [asset1, setAsset1] = useState("solana");
-  const [asset2, setAsset2] = useState("usd-coin");
-  const [weight1, setWeight1] = useState(0.6);
-  const [weight2, setWeight2] = useState(0.4);
-  const [startDate, setStartDate] = useState("2024-10-01");
-  const [endDate, setEndDate] = useState("2025-10-01");
+  const [assets, setAssets] = useState("solana,usd-coin");
+  const [weights, setWeights] = useState("0.6,0.4");
+  const [range, setRange] = useState("365"); // default to 1 year
   const [data, setData] = useState<ChartPoint[]>([]);
   const [summary, setSummary] = useState<BacktestResponse["summary"] | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // ✅ Load cached data
+  useEffect(() => {
+    const cached = localStorage.getItem("backtestResult");
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      setData(parsed.data);
+      setSummary(parsed.summary);
+    }
+  }, []);
+
   const handleRunBacktest = async () => {
     setLoading(true);
+
+    // Derive start and end dates based on selected range
+    const endDate = new Date();
+    const startDate = new Date();
+
+    if (range !== "max") {
+      startDate.setDate(endDate.getDate() - parseInt(range));
+    } else {
+      startDate.setFullYear(endDate.getFullYear() - 5); // Approx 5 years for "max"
+    }
+
     try {
       const res = await fetch("https://aurorai.onrender.com/api/backtest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          assets: [asset1, asset2],
-          weights: [weight1, weight2],
-          startDate,
-          endDate,
+          assets: assets.split(",").map((a) => a.trim()),
+          weights: weights.split(",").map((w) => parseFloat(w)),
+          startDate: startDate.toISOString().split("T")[0],
+          endDate: endDate.toISOString().split("T")[0],
         }),
       });
 
+      if (!res.ok) {
+        throw new Error(`Backtest failed: ${res.statusText}`);
+      }
+
       const result: BacktestResponse = await res.json();
 
-      const chartData: ChartPoint[] = result.portfolioPerformance.map((point) => ({
-        x: new Date(point.date).toLocaleDateString(),
-        y: point.value,
+      const chartData: ChartPoint[] = result.portfolioPerformance.map((p) => ({
+        x: new Date(p.date).toLocaleDateString(),
+        y: p.value,
       }));
+
+      // ✅ Cache to localStorage
+      localStorage.setItem(
+        "backtestResult",
+        JSON.stringify({ data: chartData, summary: result.summary })
+      );
 
       setData(chartData);
       setSummary(result.summary);
@@ -64,84 +92,61 @@ export default function Backtest() {
 
   return (
     <div className="space-y-6">
+      {/* Inputs */}
       <div className="rounded-lg border border-slate-800 bg-slate-900 p-4 space-y-4">
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Asset 1 */}
+          {/* Asset Dropdown */}
           <div>
-            <label className="block text-slate-400 text-sm mb-1">Asset 1</label>
+            <label className="block text-slate-400 text-sm mb-1">Assets</label>
             <select
-              value={asset1}
-              onChange={(e) => setAsset1(e.target.value)}
+              multiple
               className="w-full rounded bg-slate-800 border border-slate-700 p-2 text-slate-100"
+              value={assets.split(",")}
+              onChange={(e) =>
+                setAssets(Array.from(e.target.selectedOptions).map((o) => o.value).join(","))
+              }
             >
               <option value="solana">Solana</option>
-              <option value="usd-coin">USD Coin</option>
+              <option value="usd-coin">USDC</option>
             </select>
           </div>
 
-          {/* Weight 1 */}
+          {/* Weight Dropdown */}
           <div>
-            <label className="block text-slate-400 text-sm mb-1">Weight 1</label>
+            <label className="block text-slate-400 text-sm mb-1">Weights</label>
             <select
-              value={weight1}
-              onChange={(e) => setWeight1(parseFloat(e.target.value))}
+              multiple
               className="w-full rounded bg-slate-800 border border-slate-700 p-2 text-slate-100"
+              value={weights.split(",")}
+              onChange={(e) =>
+                setWeights(Array.from(e.target.selectedOptions).map((o) => o.value).join(","))
+              }
             >
               {Array.from({ length: 10 }, (_, i) => (i + 1) / 10).map((w) => (
-                <option key={w} value={w}>
+                <option key={w} value={w.toFixed(1)}>
                   {w.toFixed(1)}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Asset 2 */}
+          {/* Valid Range Dropdown */}
           <div>
-            <label className="block text-slate-400 text-sm mb-1">Asset 2</label>
+            <label className="block text-slate-400 text-sm mb-1">Date Range</label>
             <select
-              value={asset2}
-              onChange={(e) => setAsset2(e.target.value)}
               className="w-full rounded bg-slate-800 border border-slate-700 p-2 text-slate-100"
+              value={range}
+              onChange={(e) => setRange(e.target.value)}
             >
-              <option value="solana">Solana</option>
-              <option value="usd-coin">USD Coin</option>
+              <option value="1">1 Day</option>
+              <option value="7">7 Days</option>
+              <option value="14">14 Days</option>
+              <option value="30">30 Days</option>
+              <option value="90">90 Days</option>
+              <option value="180">180 Days</option>
+              <option value="365">365 Days</option>
+              <option value="max">Max</option>
             </select>
-          </div>
-
-          {/* Weight 2 */}
-          <div>
-            <label className="block text-slate-400 text-sm mb-1">Weight 2</label>
-            <select
-              value={weight2}
-              onChange={(e) => setWeight2(parseFloat(e.target.value))}
-              className="w-full rounded bg-slate-800 border border-slate-700 p-2 text-slate-100"
-            >
-              {Array.from({ length: 10 }, (_, i) => (i + 1) / 10).map((w) => (
-                <option key={w} value={w}>
-                  {w.toFixed(1)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Dates */}
-          <div>
-            <label className="block text-slate-400 text-sm mb-1">Start Date</label>
-            <input
-              type="date"
-              className="w-full rounded bg-slate-800 border border-slate-700 p-2 text-slate-100"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-slate-400 text-sm mb-1">End Date</label>
-            <input
-              type="date"
-              className="w-full rounded bg-slate-800 border border-slate-700 p-2 text-slate-100"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
           </div>
         </div>
 
@@ -154,6 +159,7 @@ export default function Backtest() {
         </button>
       </div>
 
+      {/* Chart */}
       {data.length > 0 ? (
         <ChartCard title="Backtest Equity Curve" data={data} />
       ) : (
@@ -162,6 +168,7 @@ export default function Backtest() {
         </div>
       )}
 
+      {/* Summary */}
       {summary && (
         <div className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-slate-300">
           <div className="text-sm text-slate-400 mb-2">Summary</div>
