@@ -22,8 +22,10 @@ interface BacktestResponse {
 }
 
 export default function Backtest() {
-  const [assets, setAssets] = useState("solana,usd-coin");
-  const [weights, setWeights] = useState("0.6,0.4");
+  const [asset1, setAsset1] = useState("solana");
+  const [asset2, setAsset2] = useState("usd-coin");
+  const [weight1, setWeight1] = useState(0.6);
+  const [weight2, setWeight2] = useState(0.4);
   const [startDate, setStartDate] = useState("2024-10-01");
   const [endDate, setEndDate] = useState("2025-10-01");
   const [data, setData] = useState<ChartPoint[]>([]);
@@ -37,15 +39,15 @@ export default function Backtest() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          assets: assets.split(",").map((a) => a.trim()),
-          weights: weights.split(",").map((w) => parseFloat(w)),
+          assets: [asset1, asset2],
+          weights: [weight1, weight2],
           startDate,
           endDate,
         }),
       });
+
       const result: BacktestResponse = await res.json();
 
-      // Transform data to match ChartCard's expected shape
       const chartData: ChartPoint[] = result.portfolioPerformance.map((point) => ({
         x: new Date(point.date).toLocaleDateString(),
         y: point.value,
@@ -64,28 +66,65 @@ export default function Backtest() {
     <div className="space-y-6">
       <div className="rounded-lg border border-slate-800 bg-slate-900 p-4 space-y-4">
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Asset 1 */}
           <div>
-            <label className="block text-slate-400 text-sm mb-1">
-              Assets (comma-separated)
-            </label>
-            <input
-              type="text"
+            <label className="block text-slate-400 text-sm mb-1">Asset 1</label>
+            <select
+              value={asset1}
+              onChange={(e) => setAsset1(e.target.value)}
               className="w-full rounded bg-slate-800 border border-slate-700 p-2 text-slate-100"
-              value={assets}
-              onChange={(e) => setAssets(e.target.value)}
-            />
+            >
+              <option value="solana">Solana</option>
+              <option value="usd-coin">USD Coin</option>
+            </select>
           </div>
+
+          {/* Weight 1 */}
           <div>
-            <label className="block text-slate-400 text-sm mb-1">
-              Weights (comma-separated)
-            </label>
-            <input
-              type="text"
+            <label className="block text-slate-400 text-sm mb-1">Weight 1</label>
+            <select
+              value={weight1}
+              onChange={(e) => setWeight1(parseFloat(e.target.value))}
               className="w-full rounded bg-slate-800 border border-slate-700 p-2 text-slate-100"
-              value={weights}
-              onChange={(e) => setWeights(e.target.value)}
-            />
+            >
+              {Array.from({ length: 10 }, (_, i) => (i + 1) / 10).map((w) => (
+                <option key={w} value={w}>
+                  {w.toFixed(1)}
+                </option>
+              ))}
+            </select>
           </div>
+
+          {/* Asset 2 */}
+          <div>
+            <label className="block text-slate-400 text-sm mb-1">Asset 2</label>
+            <select
+              value={asset2}
+              onChange={(e) => setAsset2(e.target.value)}
+              className="w-full rounded bg-slate-800 border border-slate-700 p-2 text-slate-100"
+            >
+              <option value="solana">Solana</option>
+              <option value="usd-coin">USD Coin</option>
+            </select>
+          </div>
+
+          {/* Weight 2 */}
+          <div>
+            <label className="block text-slate-400 text-sm mb-1">Weight 2</label>
+            <select
+              value={weight2}
+              onChange={(e) => setWeight2(parseFloat(e.target.value))}
+              className="w-full rounded bg-slate-800 border border-slate-700 p-2 text-slate-100"
+            >
+              {Array.from({ length: 10 }, (_, i) => (i + 1) / 10).map((w) => (
+                <option key={w} value={w}>
+                  {w.toFixed(1)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Dates */}
           <div>
             <label className="block text-slate-400 text-sm mb-1">Start Date</label>
             <input
@@ -105,6 +144,7 @@ export default function Backtest() {
             />
           </div>
         </div>
+
         <button
           onClick={handleRunBacktest}
           disabled={loading}
