@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useWalletContext } from "@/context/WalletContext";
 
+const { walletAddress } = useWalletContext()
+
 interface YieldStrategy {
   id?: string;
   name: string;
@@ -43,7 +45,7 @@ export default function Strategies() {
       // ✅ Fetch from API if no cache
       setLoading(true);
       try {
-        const res = await fetch(`${API_URL}/api/yield-optimizer/${walletAddress}`, {
+        const res = await fetch(`${API_URL}/api/optimize-yield/${walletAddress}`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
         });
