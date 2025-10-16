@@ -36,7 +36,7 @@ export default function Strategies() {
       // ✅ 2. Fetch from API if no cache
       setLoading(true);
       try {
-        const res = await fetch(`${API_URL}/api/optimize-yield`, {
+        const res = await fetch(`${API_URL}/api/optimize-yield/saved`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
         });
