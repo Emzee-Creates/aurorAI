@@ -115,8 +115,8 @@ export default function Optimizer() {
       <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-sm text-slate-400">Risk Tolerance</div>
-            <div className="text-2xl font-semibold">{risk}/100</div>
+            <div className="text-sm text-white">Risk Tolerance</div>
+            <div className="text-2xl font-semibold text-white">{risk}/100</div>
           </div>
           <input
             type="range"

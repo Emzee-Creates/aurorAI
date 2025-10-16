@@ -5,7 +5,7 @@ import { getWalletAnalytics } from "../api/analytics";
 import { useUIStore } from "@/lib/store";
 
 /**
- * Simple utility to format a number for a currency
+ * Utility to format currency nicely
  */
 function formatCurrency(amount: number, currency: string) {
   const locales: Record<string, string> = {
@@ -19,35 +19,34 @@ function formatCurrency(amount: number, currency: string) {
     NGN: "NGN",
   };
 
-  // Use Intl.NumberFormat for nice formatting
   try {
     return new Intl.NumberFormat(locales[currency] || "en-US", {
       style: "currency",
       currencyDisplay: "code",
-      currency: currency === "USDC" ? "USD" : currency, // show as USD but label later for USDC
+      currency: currency === "USDC" ? "USD" : currency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(amount);
   } catch {
-    // fallback
     return `${symbols[currency] || currency} ${amount.toFixed(2)}`;
   }
 }
 
 /**
  * Hook to fetch currency conversion rates (USD -> target)
- * Caches in sessionStorage for 30 minutes.
+ * Includes fallback to ₦1305 for NGN if API fails
  */
 function useCurrencyRate(target: "USD" | "USDC" | "NGN") {
-  const [rate, setRate] = useState<number>(1); // default USD->USD = 1
+  const [rate, setRate] = useState<number>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
     async function load() {
+      const FALLBACK_RATE_NGN = 1305; // fallback: 1 USD = ₦1305
+
       if (target === "USD" || target === "USDC") {
-        // USD and USDC treated as 1:1
         setRate(1);
         return;
       }
@@ -60,7 +59,6 @@ function useCurrencyRate(target: "USD" | "USDC" | "NGN") {
         const cached = sessionStorage.getItem(cacheKey);
         if (cached) {
           const parsed = JSON.parse(cached);
-          // valid for 30 minutes
           if (Date.now() - parsed.ts < 30 * 60 * 1000) {
             if (mounted) {
               setRate(parsed.rate);
@@ -70,21 +68,26 @@ function useCurrencyRate(target: "USD" | "USDC" | "NGN") {
           }
         }
 
-        // fetch live rate from exchangerate.host (free)
         const resp = await fetch(`https://api.exchangerate.host/latest?base=USD&symbols=${target}`);
         if (!resp.ok) throw new Error(`Rate fetch failed: ${resp.status}`);
+
         const json = await resp.json();
         const fetched = json?.rates?.[target];
-        if (!fetched) throw new Error("Rate not available");
 
+        if (!fetched || fetched < 1) throw new Error("Invalid rate fetched");
         sessionStorage.setItem(cacheKey, JSON.stringify({ rate: fetched, ts: Date.now() }));
 
-        if (mounted) {
-          setRate(fetched);
-        }
-      } catch (err: any) {
+        if (mounted) setRate(fetched);
+      } catch (err) {
         console.error("Failed to fetch FX rate:", err);
-        if (mounted) setError("Failed to fetch FX rate — showing USD values");
+        if (mounted) {
+          if (target === "NGN") {
+            setRate(FALLBACK_RATE_NGN);
+            setError("Using fallback rate (₦1305/USD)");
+          } else {
+            setError("Failed to fetch FX rate — showing USD values");
+          }
+        }
       } finally {
         if (mounted) setLoading(false);
       }
@@ -105,10 +108,7 @@ export default function Dashboard() {
   const [showAllTokens, setShowAllTokens] = useState(false);
   const [showAllTx, setShowAllTx] = useState(false);
 
-  // read base currency from store
   const baseCurrency = useUIStore((s) => s.baseCurrency);
-
-  // currency rate: USD -> baseCurrency
   const { rate: usdToBase, loading: fxLoading, error: fxError } = useCurrencyRate(baseCurrency);
 
   const {
@@ -123,7 +123,6 @@ export default function Dashboard() {
       return await getWalletAnalytics(walletAddress);
     },
     enabled: !!walletAddress,
-    // keep data cached by react-query; you can tune cacheTime/staleTime as required
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -138,19 +137,14 @@ export default function Dashboard() {
     setInputAddress("");
   };
 
-  /**
-   * Convert USD value to the selected base currency using fetched rate
-   */
   const convert = (usd: number | undefined) => {
     if (usd === undefined || usd === null) return 0;
     return usd * usdToBase;
   };
 
-  // when formatting, if base is USDC we want to display the number as USD but show "USDC" label.
   const formatValue = (usd: number | undefined) => {
     const converted = convert(usd);
     if (baseCurrency === "USDC") {
-      // show numeric USD-style but append "USDC"
       return `${converted.toFixed(2)} USDC`;
     }
     return formatCurrency(converted, baseCurrency);
@@ -168,7 +162,11 @@ export default function Dashboard() {
             value={inputAddress}
             onChange={(e) => setInputAddress(e.target.value)}
             placeholder="Enter wallet address"
-            className="flex-1 sm:w-80 border rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            className={`flex-1 sm:w-80 border rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none transition-colors
+              ${inputAddress
+                ? 'text-green-600 border-green-400'
+                : 'text-gray-500 border-gray-300'}
+            `}
           />
           <button
             type="submit"
@@ -205,18 +203,18 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* FX note */}
+      {/* FX info */}
       {fxLoading ? (
         <div className="text-xs text-slate-500">Loading exchange rate...</div>
       ) : fxError ? (
-        <div className="text-xs text-yellow-600">FX rate not available — showing USD values.</div>
+        <div className="text-xs text-yellow-600">{fxError}</div>
       ) : baseCurrency !== "USD" ? (
         <div className="text-xs text-slate-500">
-          Showing values in <strong>{baseCurrency}</strong> (1 USD = {usdToBase.toFixed(4)} {baseCurrency})
+          Showing values in <strong>{baseCurrency}</strong> (1 USD = {usdToBase.toFixed(2)} {baseCurrency})
         </div>
       ) : null}
 
-      {/* loading / error */}
+      {/* Dashboard content */}
       {isFetching && (
         <div className="flex items-center justify-center py-20 text-gray-500">
           <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-blue-600 mr-3" />
@@ -230,17 +228,13 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Dashboard content */}
       {!isFetching && !error && walletData && (
         <>
           <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <Card
-              title="Portfolio Value"
-              value={formatValue(walletData.totalPortfolioValueUSD)}
-            />
+            <Card title="Portfolio Value" value={formatValue(walletData.totalPortfolioValueUSD)} />
             <Card
               title="SOL Yield / APY"
-              value={formatValue(((walletData?.solBalance || 0) * (walletData?.solPriceUSD || 0)))}
+              value={formatValue((walletData?.solBalance || 0) * (walletData?.solPriceUSD || 0))}
               subtitle={`SOL Price: ${formatValue(walletData?.solPriceUSD)}`}
             />
             {(walletData?.concentrationRisk || walletData?.solStakingAnalysis) && (
@@ -251,82 +245,6 @@ export default function Dashboard() {
               />
             )}
           </section>
-
-          {/* Risky assets */}
-          {walletData.riskyAssets?.length > 0 && (
-            <Section title="Risky Assets">
-              <Table
-                headers={["Asset", "Exposure", "Risk Level"]}
-                rows={walletData.riskyAssets.map((a: any) => [
-                  a.name,
-                  // assume exposure was in USD — convert
-                  formatValue(a.exposure),
-                  <span className="text-red-500 font-medium">{a.riskLevel}</span>,
-                ])}
-              />
-            </Section>
-          )}
-
-          {/* Token balances (first 5) */}
-          {walletData.balances?.length > 0 && (
-            <Section title="Token Balances">
-              <Table
-                headers={["Token", "Balance", `Value (${baseCurrency})`]}
-                rows={(showAllTokens ? walletData.balances : walletData.balances.slice(0, 5)).map((t: any) => [
-                  t.symbol,
-                  t.amount,
-                  formatValue(t.valueUSD),
-                ])}
-              />
-              {walletData.balances.length > 5 && (
-                <div className="text-center mt-2">
-                  <button onClick={() => setShowAllTokens(!showAllTokens)} className="text-blue-600 hover:underline text-sm">
-                    {showAllTokens ? "Show Less" : "Show More"}
-                  </button>
-                </div>
-              )}
-            </Section>
-          )}
-
-          {/* Transactions (first 5) */}
-          {walletData.transactions?.length > 0 && (
-            <Section title="Recent Transactions">
-              <Table
-                headers={["Type", "Amount", "Token", "Date"]}
-                rows={(showAllTx ? walletData.transactions : walletData.transactions.slice(0, 5)).map((tx: any) => [
-                  tx.type,
-                  tx.amount,
-                  tx.token,
-                  new Date(tx.date).toLocaleDateString(),
-                ])}
-              />
-              {walletData.transactions.length > 5 && (
-                <div className="text-center mt-2">
-                  <button onClick={() => setShowAllTx(!showAllTx)} className="text-blue-600 hover:underline text-sm">
-                    {showAllTx ? "Show Less" : "Show More"}
-                  </button>
-                </div>
-              )}
-            </Section>
-          )}
-
-          {/* Activity */}
-          {walletData.userBehavior && (
-            <Section title="User Activity Profile">
-              <div className="bg-white rounded-xl shadow-sm p-4 border">
-                <p className="text-gray-700 mb-2">
-                  Behavior Type: <strong>{walletData.userBehavior.profile}</strong>
-                </p>
-                <ul className="text-sm text-gray-600 list-disc list-inside">
-                  {Object.entries(walletData.userBehavior.metrics || {}).map(([metric, value]) => (
-                    <li key={metric}>
-                      {metric}: <span className="font-medium">{String(value)}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </Section>
-          )}
         </>
       )}
     </div>
@@ -341,44 +259,6 @@ function Card({ title, value, subtitle }: { title: string; value: string | numbe
         <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
       </div>
       {subtitle && <p className="text-sm text-gray-500 mt-2">{subtitle}</p>}
-    </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="space-y-3">
-      <h2 className="text-xl font-semibold">{title}</h2>
-      {children}
-    </section>
-  );
-}
-
-function Table({ headers, rows }: { headers: string[]; rows: (React.ReactNode[])[] }) {
-  return (
-    <div className="bg-white rounded-xl shadow-sm p-4 border overflow-x-auto">
-      <table className="w-full text-sm min-w-[500px]">
-        <thead>
-          <tr className="text-left text-gray-600 border-b">
-            {headers.map((h, i) => (
-              <th key={i} className="py-2">
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} className="border-b last:border-none">
-              {row.map((cell, j) => (
-                <td key={j} className="py-2">
-                  {cell}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }

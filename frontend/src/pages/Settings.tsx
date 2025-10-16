@@ -14,7 +14,7 @@ export default function Settings() {
           <select
             value={baseCurrency}
             onChange={(e) => setBaseCurrency(e.target.value as any)}
-            className="rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-sm"
+            className="rounded-md border border-slate-700 bg-white px-3 py-2 text-sm"
           >
             <option value="USD">USD</option>
             <option value="USDC">USDC (1:1 USD)</option>
