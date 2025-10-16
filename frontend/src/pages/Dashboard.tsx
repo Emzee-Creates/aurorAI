@@ -5,7 +5,7 @@ import { getWalletAnalytics } from "../api/analytics";
 import { useUIStore } from "@/lib/store";
 
 /**
- * Simple utility to format a number for a currency
+ * Utility to format currency
  */
 function formatCurrency(amount: number, currency: string) {
   const locales: Record<string, string> = {
@@ -33,8 +33,7 @@ function formatCurrency(amount: number, currency: string) {
 }
 
 /**
- * Hook to fetch currency conversion rates (USD -> target)
- * Includes fallback for NGN (₦1305 / USD)
+ * Fetches USD → target rate with fallback for NGN (₦1305)
  */
 function useCurrencyRate(target: "USD" | "USDC" | "NGN") {
   const [rate, setRate] = useState<number>(1);
@@ -200,7 +199,7 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={handleClear}
-                className="bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm hover:bg-gray-300"
+                className="bg-gray-200 text-gray-800 px-3 py-2 rounded-lg text-sm hover:bg-gray-300"
               >
                 Clear
               </button>
@@ -210,19 +209,21 @@ export default function Dashboard() {
       </div>
 
       {walletAddress && (
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-gray-700">
           Connected wallet:{" "}
-          <span className="font-mono">{walletAddress}</span>
+          <span className="font-mono font-medium text-gray-900">
+            {walletAddress}
+          </span>
         </div>
       )}
 
       {/* FX info */}
       {fxLoading ? (
-        <div className="text-xs text-slate-500">Loading exchange rate...</div>
+        <div className="text-xs text-gray-500">Loading exchange rate...</div>
       ) : fxError ? (
         <div className="text-xs text-yellow-600">{fxError}</div>
       ) : baseCurrency !== "USD" ? (
-        <div className="text-xs text-slate-500">
+        <div className="text-xs text-gray-600">
           Showing values in <strong>{baseCurrency}</strong> (1 USD ={" "}
           {usdToBase.toFixed(2)} {baseCurrency})
         </div>
@@ -265,36 +266,17 @@ export default function Dashboard() {
             )}
           </section>
 
-          {/* Risky assets */}
-          {walletData.riskyAssets?.length > 0 && (
-            <Section title="Risky Assets">
-              <Table
-                headers={["Asset", "Exposure", "Risk Level"]}
-                rows={walletData.riskyAssets.map((a: any) => [
-                  a.name,
-                  formatValue(a.exposure),
-                  <span className="text-red-500 font-medium">{a.riskLevel}</span>,
-                ])}
-              />
-            </Section>
-          )}
-
-          {/* Token balances */}
           {walletData.balances?.length > 0 && (
             <Section title="Token Balances">
               <Table
-                headers={[
-                  "Token",
-                  "Balance",
-                  `Value (${baseCurrency})`,
-                ]}
+                headers={["Token", "Balance", `Value (${baseCurrency})`]}
                 rows={(showAllTokens
                   ? walletData.balances
                   : walletData.balances.slice(0, 5)
                 ).map((t: any) => [t.symbol, t.amount, formatValue(t.valueUSD)])}
               />
               {walletData.balances.length > 5 && (
-                <div className="text-center mt-2 text-black">
+                <div className="text-center mt-2">
                   <button
                     onClick={() => setShowAllTokens(!showAllTokens)}
                     className="text-blue-600 hover:underline text-sm"
@@ -306,7 +288,6 @@ export default function Dashboard() {
             </Section>
           )}
 
-          {/* Transactions */}
           {walletData.transactions?.length > 0 && (
             <Section title="Recent Transactions">
               <Table
@@ -334,20 +315,23 @@ export default function Dashboard() {
             </Section>
           )}
 
-          {/* User activity */}
           {walletData.userBehavior && (
             <Section title="User Activity Profile">
               <div className="bg-white rounded-xl shadow-sm p-4 border">
-                <p className="text-gray-700 mb-2">
+                <p className="text-gray-800 mb-2">
                   Behavior Type:{" "}
-                  <strong>{walletData.userBehavior.profile}</strong>
+                  <strong className="text-gray-900">
+                    {walletData.userBehavior.profile}
+                  </strong>
                 </p>
-                <ul className="text-sm text-gray-600 list-disc list-inside">
+                <ul className="text-sm text-gray-700 list-disc list-inside">
                   {Object.entries(walletData.userBehavior.metrics || {}).map(
                     ([metric, value]) => (
                       <li key={metric}>
                         {metric}:{" "}
-                        <span className="font-medium">{String(value)}</span>
+                        <span className="font-medium text-gray-900">
+                          {String(value)}
+                        </span>
                       </li>
                     )
                   )}
@@ -374,10 +358,10 @@ function Card({
   return (
     <div className="bg-white rounded-xl shadow-sm border p-5 flex flex-col justify-between">
       <div>
-        <h3 className="text-gray-600 text-sm font-medium">{title}</h3>
+        <h3 className="text-gray-700 text-sm font-medium">{title}</h3>
         <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
       </div>
-      {subtitle && <p className="text-sm text-gray-500 mt-2">{subtitle}</p>}
+      {subtitle && <p className="text-sm text-gray-700 mt-2">{subtitle}</p>}
     </div>
   );
 }
@@ -385,7 +369,7 @@ function Card({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-xl font-semibold">{title}</h2>
+      <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
       {children}
     </section>
   );
@@ -402,9 +386,9 @@ function Table({
     <div className="bg-white rounded-xl shadow-sm p-4 border overflow-x-auto">
       <table className="w-full text-sm min-w-[500px]">
         <thead>
-          <tr className="text-left text-gray-600 border-b">
+          <tr className="text-left text-gray-700 border-b">
             {headers.map((h, i) => (
-              <th key={i} className="py-2">
+              <th key={i} className="py-2 font-semibold">
                 {h}
               </th>
             ))}
@@ -412,7 +396,7 @@ function Table({
         </thead>
         <tbody>
           {rows.map((row, i) => (
-            <tr key={i} className="border-b last:border-none">
+            <tr key={i} className="border-b last:border-none text-gray-900">
               {row.map((cell, j) => (
                 <td key={j} className="py-2">
                   {cell}
