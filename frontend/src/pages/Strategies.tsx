@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useWalletContext } from "@/context/WalletContext";
 
 interface YieldStrategy {
   id?: string;
@@ -11,6 +12,7 @@ interface YieldStrategy {
 }
 
 export default function Strategies() {
+  const { walletAddress } = useWalletContext(); // ✅ Get wallet from context
   const [strategies, setStrategies] = useState<YieldStrategy[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,21 +24,26 @@ export default function Strategies() {
 
   useEffect(() => {
     const fetchStrategies = async () => {
-      setError(null);
-
-      // ✅ 1. Check cache first
-      const cached = sessionStorage.getItem("yield_strategies");
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        setStrategies(parsed);
-        console.log("Loaded yield strategies from cache.");
+      if (!walletAddress) {
+        setError("No wallet connected.");
         return;
       }
 
-      // ✅ 2. Fetch from API if no cache
+      setError(null);
+
+      // ✅ Check cache per wallet
+      const cached = sessionStorage.getItem(`yield_strategies_${walletAddress}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setStrategies(parsed);
+        console.log(`Loaded yield strategies for ${walletAddress} from cache.`);
+        return;
+      }
+
+      // ✅ Fetch from API if no cache
       setLoading(true);
       try {
-        const res = await fetch(`${API_URL}/api/optimize-yield/saved`, {
+        const res = await fetch(`${API_URL}/api/yield-optimizer/${walletAddress}`, {
           method: "GET",
           headers: { "Content-Type": "application/json" },
         });
@@ -44,13 +51,38 @@ export default function Strategies() {
         if (!res.ok) throw new Error(`Failed with status ${res.status}`);
 
         const data = await res.json();
-        const fetchedStrategies = data.strategies || data || [];
+
+        // Backend might return structured data instead of array, so normalize
+        const fetchedStrategies: YieldStrategy[] = Array.isArray(data)
+          ? data
+          : [
+              {
+                id: "1",
+                name: "SOL Staking Optimization",
+                protocol: "Jito / Jupiter",
+                apy: data.solStaking?.estimatedApy || 6.5,
+                riskLevel: "Low",
+                description:
+                  "Earn staking rewards by converting SOL to JitoSOL and maximize yield.",
+                assets: ["SOL", "JitoSOL"],
+              },
+              {
+                id: "2",
+                name: "USDC Stable Yield",
+                protocol: "Orca / Jupiter",
+                apy: (data.swapOptimization?.usdcYield?.apy || 0.04) * 100,
+                riskLevel: "Low",
+                description:
+                  "Provide liquidity in SOL/USDC pools to earn stable yield.",
+                assets: ["SOL", "USDC"],
+              },
+            ];
 
         setStrategies(fetchedStrategies);
 
-        // ✅ 3. Cache the fetched data
+        // ✅ Cache the fetched data (per wallet)
         sessionStorage.setItem(
-          "yield_strategies",
+          `yield_strategies_${walletAddress}`,
           JSON.stringify(fetchedStrategies)
         );
       } catch (err: any) {
@@ -62,12 +94,21 @@ export default function Strategies() {
     };
 
     fetchStrategies();
-  }, [API_URL]);
+  }, [walletAddress, API_URL]);
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-        <div className="text-sm text-slate-400 mb-3">Saved Strategies</div>
+      <div className="rounded-lg border border-slate-800 bg-slate-900 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-slate-200">
+            Yield Optimization Strategies
+          </h2>
+          {walletAddress && (
+            <span className="text-xs text-slate-400">
+              Wallet: {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+            </span>
+          )}
+        </div>
 
         {loading ? (
           <div className="text-slate-400 animate-pulse text-sm">
@@ -77,49 +118,53 @@ export default function Strategies() {
           <div className="text-red-400 text-sm">{error}</div>
         ) : strategies.length === 0 ? (
           <div className="text-slate-300 text-sm">
-            No strategies yet. Create one from the Optimizer tab.
+            No strategies yet. Run the optimizer to generate personalized results.
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {strategies.map((s, idx) => (
-              <div
-                key={s.id || idx}
-                className="rounded-lg border border-slate-700 bg-slate-800/60 p-4 hover:bg-slate-800 transition"
-              >
-                <div className="text-lg font-semibold text-white mb-1">
-                  {s.name}
-                </div>
-                <div className="text-sm text-slate-400 mb-2">
-                  Protocol:{" "}
-                  <span className="text-slate-200">{s.protocol}</span>
-                </div>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="text-green-400 font-medium">
-                    {s.apy.toFixed(2)}% APY
-                  </div>
-                  <div
-                    className={`text-xs px-2 py-1 rounded-full ${
-                      s.riskLevel === "Low"
-                        ? "bg-green-900 text-green-300"
-                        : s.riskLevel === "Medium"
-                        ? "bg-yellow-900 text-yellow-300"
-                        : "bg-red-900 text-red-300"
-                    }`}
+          <div className="overflow-x-auto rounded-md border border-slate-700">
+            <table className="min-w-full text-sm text-left text-slate-300">
+              <thead className="bg-slate-800 text-slate-400 uppercase text-xs">
+                <tr>
+                  <th className="px-4 py-3">Name</th>
+                  <th className="px-4 py-3">Protocol</th>
+                  <th className="px-4 py-3">APY</th>
+                  <th className="px-4 py-3">Risk</th>
+                  <th className="px-4 py-3">Assets</th>
+                  <th className="px-4 py-3">Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                {strategies.map((s, idx) => (
+                  <tr
+                    key={s.id || idx}
+                    className="border-t border-slate-800 hover:bg-slate-800/60 transition"
                   >
-                    {s.riskLevel} Risk
-                  </div>
-                </div>
-                <div className="text-slate-400 text-sm mb-3">
-                  {s.description || "No description available."}
-                </div>
-                <div className="text-xs text-slate-500">
-                  Assets:{" "}
-                  <span className="text-slate-300">
-                    {s.assets?.join(", ") || "N/A"}
-                  </span>
-                </div>
-              </div>
-            ))}
+                    <td className="px-4 py-3 font-medium text-white">{s.name}</td>
+                    <td className="px-4 py-3">{s.protocol}</td>
+                    <td className="px-4 py-3 text-green-400">
+                      {s.apy.toFixed(2)}%
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          s.riskLevel === "Low"
+                            ? "bg-green-900 text-green-300"
+                            : s.riskLevel === "Medium"
+                            ? "bg-yellow-900 text-yellow-300"
+                            : "bg-red-900 text-red-300"
+                        }`}
+                      >
+                        {s.riskLevel}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">{s.assets.join(", ")}</td>
+                    <td className="px-4 py-3 text-slate-400">
+                      {s.description || "N/A"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
