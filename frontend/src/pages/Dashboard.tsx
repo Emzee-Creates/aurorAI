@@ -1,21 +1,121 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useWalletContext } from "../context/WalletContext";
 import { useQuery } from "@tanstack/react-query";
 import { getWalletAnalytics } from "../api/analytics";
+import { useUIStore } from "@/lib/store";
+
+/**
+ * Simple utility to format a number for a currency
+ */
+function formatCurrency(amount: number, currency: string) {
+  const locales: Record<string, string> = {
+    USD: "en-US",
+    USDC: "en-US",
+    NGN: "en-NG",
+  };
+  const symbols: Record<string, string> = {
+    USD: "USD",
+    USDC: "USDC",
+    NGN: "NGN",
+  };
+
+  // Use Intl.NumberFormat for nice formatting
+  try {
+    return new Intl.NumberFormat(locales[currency] || "en-US", {
+      style: "currency",
+      currencyDisplay: "code",
+      currency: currency === "USDC" ? "USD" : currency, // show as USD but label later for USDC
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    // fallback
+    return `${symbols[currency] || currency} ${amount.toFixed(2)}`;
+  }
+}
+
+/**
+ * Hook to fetch currency conversion rates (USD -> target)
+ * Caches in sessionStorage for 30 minutes.
+ */
+function useCurrencyRate(target: "USD" | "USDC" | "NGN") {
+  const [rate, setRate] = useState<number>(1); // default USD->USD = 1
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      if (target === "USD" || target === "USDC") {
+        // USD and USDC treated as 1:1
+        setRate(1);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      const cacheKey = `fx_usd_to_${target}`;
+      try {
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          // valid for 30 minutes
+          if (Date.now() - parsed.ts < 30 * 60 * 1000) {
+            if (mounted) {
+              setRate(parsed.rate);
+              setLoading(false);
+            }
+            return;
+          }
+        }
+
+        // fetch live rate from exchangerate.host (free)
+        const resp = await fetch(`https://api.exchangerate.host/latest?base=USD&symbols=${target}`);
+        if (!resp.ok) throw new Error(`Rate fetch failed: ${resp.status}`);
+        const json = await resp.json();
+        const fetched = json?.rates?.[target];
+        if (!fetched) throw new Error("Rate not available");
+
+        sessionStorage.setItem(cacheKey, JSON.stringify({ rate: fetched, ts: Date.now() }));
+
+        if (mounted) {
+          setRate(fetched);
+        }
+      } catch (err: any) {
+        console.error("Failed to fetch FX rate:", err);
+        if (mounted) setError("Failed to fetch FX rate — showing USD values");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, [target]);
+
+  return { rate, loading, error };
+}
 
 export default function Dashboard() {
   const { walletAddress, setWalletAddress, clearWallet } = useWalletContext();
   const [inputAddress, setInputAddress] = useState(walletAddress || "");
-
   const [showAllTokens, setShowAllTokens] = useState(false);
   const [showAllTx, setShowAllTx] = useState(false);
+
+  // read base currency from store
+  const baseCurrency = useUIStore((s) => s.baseCurrency);
+
+  // currency rate: USD -> baseCurrency
+  const { rate: usdToBase, loading: fxLoading, error: fxError } = useCurrencyRate(baseCurrency);
 
   const {
     data: walletData,
     error,
     isFetching,
     refetch,
-    isFetched,
   } = useQuery({
     queryKey: ["walletAnalytics", walletAddress],
     queryFn: async () => {
@@ -23,6 +123,7 @@ export default function Dashboard() {
       return await getWalletAnalytics(walletAddress);
     },
     enabled: !!walletAddress,
+    // keep data cached by react-query; you can tune cacheTime/staleTime as required
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -37,16 +138,31 @@ export default function Dashboard() {
     setInputAddress("");
   };
 
+  /**
+   * Convert USD value to the selected base currency using fetched rate
+   */
+  const convert = (usd: number | undefined) => {
+    if (usd === undefined || usd === null) return 0;
+    return usd * usdToBase;
+  };
+
+  // when formatting, if base is USDC we want to display the number as USD but show "USDC" label.
+  const formatValue = (usd: number | undefined) => {
+    const converted = convert(usd);
+    if (baseCurrency === "USDC") {
+      // show numeric USD-style but append "USDC"
+      return `${converted.toFixed(2)} USDC`;
+    }
+    return formatCurrency(converted, baseCurrency);
+  };
+
   return (
     <div className="space-y-8">
-      {/* ---- Header ---- */}
+      {/* header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
 
-        <form
-          onSubmit={handleSubmit}
-          className="flex items-center gap-3 w-full sm:w-auto"
-        >
+        <form onSubmit={handleSubmit} className="flex items-center gap-3 w-full sm:w-auto">
           <input
             type="text"
             value={inputAddress}
@@ -89,7 +205,18 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ---- Loading / Error ---- */}
+      {/* FX note */}
+      {fxLoading ? (
+        <div className="text-xs text-slate-500">Loading exchange rate...</div>
+      ) : fxError ? (
+        <div className="text-xs text-yellow-600">FX rate not available — showing USD values.</div>
+      ) : baseCurrency !== "USD" ? (
+        <div className="text-xs text-slate-500">
+          Showing values in <strong>{baseCurrency}</strong> (1 USD = {usdToBase.toFixed(4)} {baseCurrency})
+        </div>
+      ) : null}
+
+      {/* loading / error */}
       {isFetching && (
         <div className="flex items-center justify-center py-20 text-gray-500">
           <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-blue-600 mr-3" />
@@ -103,24 +230,20 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ---- Dashboard ---- */}
+      {/* Dashboard content */}
       {!isFetching && !error && walletData && (
         <>
-          {/* Top Cards */}
           <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <Card
               title="Portfolio Value"
-              value={`$${walletData.totalPortfolioValueUSD?.toFixed(2)}`}
+              value={formatValue(walletData.totalPortfolioValueUSD)}
             />
             <Card
               title="SOL Yield / APY"
-              value={`${(
-                (walletData?.solBalance || 0) * (walletData?.solPriceUSD || 0)
-              ).toFixed(2)} USD`}
-              subtitle={`SOL Price: $${walletData?.solPriceUSD?.toFixed(2)}`}
+              value={formatValue(((walletData?.solBalance || 0) * (walletData?.solPriceUSD || 0)))}
+              subtitle={`SOL Price: ${formatValue(walletData?.solPriceUSD)}`}
             />
-            {(walletData?.concentrationRisk ||
-              walletData?.solStakingAnalysis) && (
+            {(walletData?.concentrationRisk || walletData?.solStakingAnalysis) && (
               <Card
                 title="Risk Summary"
                 value={walletData?.concentrationRisk?.level || "Moderate"}
@@ -129,40 +252,35 @@ export default function Dashboard() {
             )}
           </section>
 
-          {/* Risky Assets */}
+          {/* Risky assets */}
           {walletData.riskyAssets?.length > 0 && (
             <Section title="Risky Assets">
               <Table
                 headers={["Asset", "Exposure", "Risk Level"]}
                 rows={walletData.riskyAssets.map((a: any) => [
                   a.name,
-                  a.exposure,
+                  // assume exposure was in USD — convert
+                  formatValue(a.exposure),
                   <span className="text-red-500 font-medium">{a.riskLevel}</span>,
                 ])}
               />
             </Section>
           )}
 
-          {/* Token Balances (show first 5) */}
+          {/* Token balances (first 5) */}
           {walletData.balances?.length > 0 && (
             <Section title="Token Balances">
               <Table
-                headers={["Token", "Balance", "Value (USD)"]}
-                rows={(showAllTokens
-                  ? walletData.balances
-                  : walletData.balances.slice(0, 5)
-                ).map((t: any) => [
+                headers={["Token", "Balance", `Value (${baseCurrency})`]}
+                rows={(showAllTokens ? walletData.balances : walletData.balances.slice(0, 5)).map((t: any) => [
                   t.symbol,
                   t.amount,
-                  `$${t.valueUSD?.toFixed(2)}`,
+                  formatValue(t.valueUSD),
                 ])}
               />
               {walletData.balances.length > 5 && (
                 <div className="text-center mt-2">
-                  <button
-                    onClick={() => setShowAllTokens(!showAllTokens)}
-                    className="text-blue-600 hover:underline text-sm"
-                  >
+                  <button onClick={() => setShowAllTokens(!showAllTokens)} className="text-blue-600 hover:underline text-sm">
                     {showAllTokens ? "Show Less" : "Show More"}
                   </button>
                 </div>
@@ -170,15 +288,12 @@ export default function Dashboard() {
             </Section>
           )}
 
-          {/* Transactions (show first 5) */}
+          {/* Transactions (first 5) */}
           {walletData.transactions?.length > 0 && (
             <Section title="Recent Transactions">
               <Table
                 headers={["Type", "Amount", "Token", "Date"]}
-                rows={(showAllTx
-                  ? walletData.transactions
-                  : walletData.transactions.slice(0, 5)
-                ).map((tx: any) => [
+                rows={(showAllTx ? walletData.transactions : walletData.transactions.slice(0, 5)).map((tx: any) => [
                   tx.type,
                   tx.amount,
                   tx.token,
@@ -187,10 +302,7 @@ export default function Dashboard() {
               />
               {walletData.transactions.length > 5 && (
                 <div className="text-center mt-2">
-                  <button
-                    onClick={() => setShowAllTx(!showAllTx)}
-                    className="text-blue-600 hover:underline text-sm"
-                  >
+                  <button onClick={() => setShowAllTx(!showAllTx)} className="text-blue-600 hover:underline text-sm">
                     {showAllTx ? "Show Less" : "Show More"}
                   </button>
                 </div>
@@ -203,18 +315,14 @@ export default function Dashboard() {
             <Section title="User Activity Profile">
               <div className="bg-white rounded-xl shadow-sm p-4 border">
                 <p className="text-gray-700 mb-2">
-                  Behavior Type:{" "}
-                  <strong>{walletData.userBehavior.profile}</strong>
+                  Behavior Type: <strong>{walletData.userBehavior.profile}</strong>
                 </p>
                 <ul className="text-sm text-gray-600 list-disc list-inside">
-                  {Object.entries(walletData.userBehavior.metrics || {}).map(
-                    ([metric, value]) => (
-                      <li key={metric}>
-                        {metric}:{" "}
-                        <span className="font-medium">{String(value)}</span>
-                      </li>
-                    )
-                  )}
+                  {Object.entries(walletData.userBehavior.metrics || {}).map(([metric, value]) => (
+                    <li key={metric}>
+                      {metric}: <span className="font-medium">{String(value)}</span>
+                    </li>
+                  ))}
                 </ul>
               </div>
             </Section>
@@ -225,15 +333,7 @@ export default function Dashboard() {
   );
 }
 
-function Card({
-  title,
-  value,
-  subtitle,
-}: {
-  title: string;
-  value: string | number;
-  subtitle?: string;
-}) {
+function Card({ title, value, subtitle }: { title: string; value: string | number; subtitle?: string }) {
   return (
     <div className="bg-white rounded-xl shadow-sm border p-5 flex flex-col justify-between">
       <div>
