@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useWalletContext } from "@/context/WalletContext";
 
-const { walletAddress } = useWalletContext()
+
 
 interface YieldStrategy {
   id?: string;
