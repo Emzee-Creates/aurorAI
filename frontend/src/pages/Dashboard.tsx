@@ -294,7 +294,7 @@ export default function Dashboard() {
                 ).map((t: any) => [t.symbol, t.amount, formatValue(t.valueUSD)])}
               />
               {walletData.balances.length > 5 && (
-                <div className="text-center mt-2">
+                <div className="text-center mt-2 text-black">
                   <button
                     onClick={() => setShowAllTokens(!showAllTokens)}
                     className="text-blue-600 hover:underline text-sm"
