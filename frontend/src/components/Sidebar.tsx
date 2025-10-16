@@ -11,7 +11,7 @@ const nav = [
 
 export default function Sidebar() {
   return (
-    <aside className="sticky top-[65px] h-[calc(100vh-65px)] w-60 border-r border-slate-800 bg-slate-900 p-4">
+    <aside className="sticky top-[65px] h-[calc(100vh)] w-60 border-r border-slate-800 bg-slate-900 p-4">
       <nav className="space-y-1">
         {nav.map(({ to, label, icon: Icon }) => (
           <NavLink
