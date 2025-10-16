@@ -9,15 +9,17 @@ import Sidebar from "./components/Sidebar";
 
 export default function App() {
   return (
-    <div className="flex min-h-screen bg-gray-50 text-gray-800">
+    <div className="flex min-h-screen bg-slate-950 text-slate-100">
       {/* Sidebar */}
       <Sidebar />
 
-      {/* Main Content */}
+      {/* Main Content Area */}
       <div className="flex flex-col flex-1 min-h-screen">
+        {/* Header */}
         <Header />
 
-        <main className="flex-1 overflow-y-auto p-6">
+        {/* Main */}
+        <main className="flex-1 overflow-y-auto px-6 py-6 bg-slate-950">
           <Routes>
             {/* Redirect root to dashboard */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -33,7 +35,7 @@ export default function App() {
             <Route
               path="*"
               element={
-                <div className="flex items-center justify-center h-full text-gray-500">
+                <div className="flex items-center justify-center h-full text-slate-400">
                   404 — Page Not Found
                 </div>
               }
